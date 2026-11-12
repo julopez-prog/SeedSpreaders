@@ -74,4 +74,8 @@ public class Product {
 	public void setDescription(String description) {
 		this.description = description;
 	}
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4

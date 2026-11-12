@@ -1,5 +1,4 @@
 /*
-<<<<<<< HEAD
 - @author
 - Paolo Jay A. Labindalawa
 - Axel Andre B. Lao
@@ -15,27 +14,10 @@
 - and storage locations. The system also saves inventory records and updates stock summaries to keep
 - seed management simple and efficient.
 */
-=======
-- @author 
-- Paolo Jay A. Labindalawa
-- Axel Andre B. Lao 
-- Jared U. Lopez
-- @date 11/07/26 23:30
-- 
-- SeedSpreaders Milestone 2
--
--
-- The Seed Spreaders Inventory Management System helps organize and monitor the seed bank’s inventory. 
-- It allows users to add, view, edit, and delete seed products while tracking their quantities, prices, 
-- and storage locations. The system also saves inventory records and updates stock summaries to keep 
-- seed management simple and efficient.
- */
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 package application;
 
 import javafx.application.Application;
 import javafx.collections.FXCollections;
-<<<<<<< HEAD
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
@@ -50,27 +32,14 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
-=======
-import javafx.collections.ObservableList;
-import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TableCell;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
-<<<<<<< HEAD
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
-=======
-import javafx.scene.layout.VBox;
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 import javafx.stage.Stage;
 
 import java.io.IOException;
@@ -81,7 +50,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-<<<<<<< HEAD
 
 public class Main extends Application {
 	private Stage mainStage;
@@ -104,17 +72,11 @@ public class Main extends Application {
 			new User("admin", "admin123", "Admin"),
 			new User("juan", "farmer123", "Farmer"),
 			new User("maria", "farmer123", "Farmer"));
-=======
-public class Main extends Application {
-	private ObservableList<Product> productData;
-	private final Path filePath = Paths.get("products.txt");
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 
 	// Summary labels for the top portion
 	private Label lblVarieties = new Label("Total Plant Varieties: 0");
 	private Label lblStocks = new Label("Total Seed Stocks: 0.0");
 	private Label lblLots = new Label("Total Storage Lots: 0");
-<<<<<<< HEAD
 	private Label lblDonationTotal = new Label("Total Donations: 0.00");
 
 	@Override
@@ -267,21 +229,6 @@ public class Main extends Application {
 		TableColumn<Product, Double> colAmount = new TableColumn<>("Amount");
 		TableColumn<Product, String> colName = new TableColumn<>("Name");
 		TableColumn<Product, Double> colPrice = new TableColumn<>("Price");
-=======
-
-	@Override
-	public void start(Stage stage) {
-		// Table
-		TableView<Product> table = new TableView<>();
-		table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-		
-		TableColumn<Product, Integer> colLotID       = new TableColumn<>("Lot ID");
-		TableColumn<Product, String> colVariety     = new TableColumn<>("Variety");
-		TableColumn<Product, String> colLocation    = new TableColumn<>("Location");
-		TableColumn<Product, Double> colAmount      = new TableColumn<>("Amount");
-		TableColumn<Product, String> colName        = new TableColumn<>("Name");
-		TableColumn<Product, Double> colPrice       = new TableColumn<>("Price");
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 		TableColumn<Product, String> colDescription = new TableColumn<>("Description");
 
 		colLotID.setCellValueFactory(new PropertyValueFactory<>("lotID"));
@@ -316,30 +263,13 @@ public class Main extends Application {
 		});
 
 		table.getColumns().addAll(
-<<<<<<< HEAD
 				colLotID, colVariety, colLocation, colAmount, colName, colPrice, colDescription, colAction);
 		table.setItems(productData);
 
-=======
-			colLotID, colVariety, colLocation, colAmount, colName, colPrice, colDescription, colAction
-		);
-
-		// Load data from file
-		productData = loadProducts(filePath);
-		table.setItems(productData);
-
-		// Listen for changes in productData to dynamically update summary metrics
-		productData.addListener((javafx.collections.ListChangeListener.Change<? extends Product> c) -> {
-			updateSummaryMetrics();
-		});
-		updateSummaryMetrics(); // Initial calculation
-		
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 		// Buttons (only Add Inventory and Save & Quit on top bar)
 		Button btnProduct = new Button("Create New Product");
 		Button btnSaveQuit = new Button("Save and Quit");
 
-<<<<<<< HEAD
 		btnProduct.setOnAction(e -> {
 			createNewProduct();
 		});
@@ -350,18 +280,6 @@ public class Main extends Application {
 			showLandingPage();
 		});
 
-=======
-		// Button actions
-		btnProduct.setOnAction(e -> {
-			createNewProduct();
-		});
-		
-		btnSaveQuit.setOnAction(e -> {
-			saveProducts(filePath, productData);
-			stage.close();
-		});
-		
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 		// Summary bar layout container
 		HBox summaryBar = new HBox(20, lblVarieties, lblStocks, lblLots);
 		summaryBar.setStyle("-fx-padding: 10 10 0 10; -fx-font-weight: bold;");
@@ -369,17 +287,12 @@ public class Main extends Application {
 		// Toolbar layout container
 		HBox toolbar = new HBox(10, btnProduct, btnSaveQuit);
 		toolbar.setStyle("-fx-padding: 10;");
-<<<<<<< HEAD
 
-=======
-		
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 		// Combine summary and toolbar in the top portion
 		VBox topContainer = new VBox(5, summaryBar, toolbar);
 
 		BorderPane root = new BorderPane(table);
 		root.setTop(topContainer);
-<<<<<<< HEAD
 		return root;
 	}
 
@@ -939,17 +852,6 @@ public class Main extends Application {
 		dialogStage.showAndWait();
 	}
 
-=======
-		root.setCenter(table);
-		
-		// Set Stage
-		Scene scene = new Scene(root, 1020, 360);
-		stage.setScene(scene);
-		stage.setTitle("Product Inventory Management");
-		stage.show();
-	}
-	
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 	// Helper method to update summary metrics dynamically
 	private void updateSummaryMetrics() {
 		int totalVarieties = (int) productData.stream().map(Product::getVariety).distinct().count();
@@ -961,7 +863,6 @@ public class Main extends Application {
 		lblLots.setText("Total Storage Lots: " + totalLots);
 	}
 
-<<<<<<< HEAD
 	private void updateDonationTotal() {
 		double total = donationData.stream().mapToDouble(Donation::getAmount).sum();
 		lblDonationTotal.setText("Total Donations: " + String.format("%,.2f", total));
@@ -971,17 +872,10 @@ public class Main extends Application {
 	private ObservableList<Product> loadProducts(Path path) {
 		ObservableList<Product> list = FXCollections.observableArrayList();
 
-=======
-	// Load products from a file
-	private ObservableList<Product> loadProducts(Path path) {
-		ObservableList<Product> list = FXCollections.observableArrayList();
-		
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 		try {
 			if (Files.exists(path)) { // Check if file exists
 				List<String> records = Files.readAllLines(path); // Iteratively reads file contents and stores in a list
 				for (String line : records) {
-<<<<<<< HEAD
 					if (line.trim().isEmpty()) {
 						continue;
 					}
@@ -994,18 +888,6 @@ public class Main extends Application {
 							parts[4].trim(),
 							parts[5].trim(),
 							parts[6].trim()));
-=======
-					String[] parts = line.split(",");
-					list.add(new Product(
-						parts[0].trim(),
-						Double.parseDouble(parts[1].trim()),
-						Double.parseDouble(parts[2].trim()),
-						Integer.parseInt(parts[3].trim()),
-						parts[4].trim(),
-						parts[5].trim(),
-						parts[6].trim()
-					));
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 				}
 			}
 		} catch (IOException | NumberFormatException e) {
@@ -1014,27 +896,17 @@ public class Main extends Application {
 
 		return list;
 	}
-<<<<<<< HEAD
 
-=======
-	
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 	// Saves products into a file
 	private void saveProducts(Path path, ObservableList<Product> data) {
 		try {
 			List<String> lines = new ArrayList<>();
 			for (Product product : data) { // Iteratively adds products into a list of strings
-<<<<<<< HEAD
 				lines.add(product.getName() + "," + product.getPrice() + "," + product.getAmount() + ","
 						+ product.getLotID() + "," + product.getLocation() + ","
 						+ product.getVariety() + "," + product.getDescription());
 			}
 
-=======
-				lines.add(product.getName() + "," + product.getPrice() + "," + product.getAmount() + "," + product.getLotID() + "," + product.getLocation() + "," + product.getVariety() + "," + product.getDescription());
-			}
-			
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 			// Add to file
 			if (Files.exists(path)) {
 				try (PrintWriter writer = new PrintWriter(path.toFile())) {
@@ -1049,7 +921,6 @@ public class Main extends Application {
 			e.printStackTrace();
 		}
 	}
-<<<<<<< HEAD
 
 	// Load donations from a file
 	private ObservableList<Donation> loadDonations(Path path) {
@@ -1104,18 +975,11 @@ public class Main extends Application {
 		}
 	}
 
-=======
-	
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 	// Adds a new product
 	private void createNewProduct() {
 		Stage dialogStage = new Stage();
 		dialogStage.setTitle("Create New Product");
-<<<<<<< HEAD
 
-=======
-		
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 		// Text Fields
 		TextField textName = new TextField();
 		TextField textPrice = new TextField();
@@ -1124,11 +988,7 @@ public class Main extends Application {
 		TextField textLocation = new TextField();
 		TextField textVariety = new TextField();
 		TextField textDescription = new TextField();
-<<<<<<< HEAD
 
-=======
-		
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 		// Sets up labels and fits them neatly in Hboxes
 		Label labelName = new Label("Name:");
 		labelName.setMinWidth(100);
@@ -1160,16 +1020,10 @@ public class Main extends Application {
 
 		Button btnCreate = new Button("Create Product");
 		Label labelWarn = new Label();
-<<<<<<< HEAD
 
 		// Arrange
 		VBox vbox = new VBox(10, hBoxName, hBoxPrice, hBoxAmount, hBoxLotID, hBoxLocation,
 				hBoxVariety, hBoxDescription, labelWarn, btnCreate);
-=======
-		
-		// Arrange
-		VBox vbox = new VBox(10, hBoxName, hBoxPrice, hBoxAmount, hBoxLotID, hBoxLocation, hBoxVariety, hBoxDescription, labelWarn, btnCreate);
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 		vbox.setStyle("-fx-padding: 15;");
 
 		// Button for creating products
@@ -1183,20 +1037,12 @@ public class Main extends Application {
 			String description = textDescription.getText().trim();
 
 			// Make sure required text fields are full
-<<<<<<< HEAD
 			if (name.isEmpty() || priceStr.isEmpty() || amountStr.isEmpty() || lotIDStr.isEmpty()
 					|| location.isEmpty() || variety.isEmpty() || description.isEmpty()) {
 				labelWarn.setText("Error: All fields are required!");
 				return;
 			}
 
-=======
-			if (name.isEmpty() || priceStr.isEmpty() || amountStr.isEmpty() || lotIDStr.isEmpty() || location.isEmpty() || variety.isEmpty() || description.isEmpty()) {
-				labelWarn.setText("Error: All fields are required!");
-				return;
-			}
-			
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 			try {
 				double price = Double.parseDouble(priceStr);
 				double amount = Double.parseDouble(amountStr);
@@ -1209,11 +1055,7 @@ public class Main extends Application {
 				labelWarn.setText("Error: Price, Amount, and Lot ID must be valid numbers!");
 			}
 		});
-<<<<<<< HEAD
 
-=======
-		
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 		// Sets up scene
 		Scene scene = new Scene(vbox, 400, 450);
 		dialogStage.setScene(scene);
@@ -1246,12 +1088,8 @@ public class Main extends Application {
 
 		HBox hBoxButtons = new HBox(10, btnEdit, btnDelete);
 
-<<<<<<< HEAD
 		VBox vbox = new VBox(10, labelName, labelPrice, labelAmount, labelLotID,
 				labelLocation, labelVariety, labelDescription, hBoxButtons);
-=======
-		VBox vbox = new VBox(10, labelName, labelPrice, labelAmount, labelLotID, labelLocation, labelVariety, labelDescription, hBoxButtons);
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 		vbox.setStyle("-fx-padding: 15;");
 
 		Scene scene = new Scene(vbox, 350, 300);
@@ -1303,12 +1141,8 @@ public class Main extends Application {
 		Button btnSave = new Button("Save Changes");
 		Label labelWarn = new Label();
 
-<<<<<<< HEAD
 		VBox vbox = new VBox(10, hBoxName, hBoxPrice, hBoxAmount, hBoxLotID, hBoxLocation,
 				hBoxVariety, hBoxDescription, labelWarn, btnSave);
-=======
-		VBox vbox = new VBox(10, hBoxName, hBoxPrice, hBoxAmount, hBoxLotID, hBoxLocation, hBoxVariety, hBoxDescription, labelWarn, btnSave);
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 		vbox.setStyle("-fx-padding: 15;");
 
 		btnSave.setOnAction(e -> {
@@ -1320,12 +1154,8 @@ public class Main extends Application {
 			String variety = textVariety.getText().trim();
 			String description = textDescription.getText().trim();
 
-<<<<<<< HEAD
 			if (name.isEmpty() || priceStr.isEmpty() || amountStr.isEmpty() || lotIDStr.isEmpty()
 					|| location.isEmpty() || variety.isEmpty() || description.isEmpty()) {
-=======
-			if (name.isEmpty() || priceStr.isEmpty() || amountStr.isEmpty() || lotIDStr.isEmpty() || location.isEmpty() || variety.isEmpty() || description.isEmpty()) {
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4
 				labelWarn.setText("Error: All fields are required!");
 				return;
 			}
@@ -1362,14 +1192,7 @@ public class Main extends Application {
 		editStage.showAndWait();
 	}
 
-<<<<<<< HEAD
 	public static void main(String[] args) {
 		launch();
 	}
 }
-=======
-	public static void main(String[] args) { 
-		launch(); 
-	}
-}
->>>>>>> d7029ea0ad33fafcea9f150859c82f21e4d90bc4

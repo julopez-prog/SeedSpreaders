@@ -1,4 +1,3 @@
-
 package application;
 
 import application.admin.AdminPages;
@@ -19,7 +18,7 @@ public class Main extends Application {
 
     @Override
     public void start(Stage stage) {
-
+    	
         state.initialize();
 
         publicPages = new PublicPages(stage, state, user -> {

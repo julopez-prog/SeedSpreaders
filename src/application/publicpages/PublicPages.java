@@ -144,7 +144,6 @@ public class PublicPages {
 		heading.setMaxWidth(415);
 		heading.setLineSpacing(3);
 
-
 		// DESCRIPTION
 		Label description = new Label(
 			"Supporting Filipino farmers with access to quality seeds, " +
@@ -154,7 +153,6 @@ public class PublicPages {
 		description.getStyleClass().add("landing-description");
 		description.setWrapText(true);
 		description.setMaxWidth(368);
-
 
 		// DONATE BUTTON
 		Button donateButton = new Button("Donate");
@@ -170,7 +168,6 @@ public class PublicPages {
 			new Insets(20, 0, 0, 0)
 		);
 
-
 		// LEFT CONTENT
 		VBox copy = new VBox(
 			20,
@@ -185,7 +182,6 @@ public class PublicPages {
 
 		HBox.setHgrow(copy, Priority.ALWAYS);
 
-
 		// MAIN LOGO IMAGE
 		ImageView heroLogo = loadLogo(
 			"/application/assets/seed-spreaders-hero.png", 425
@@ -194,7 +190,6 @@ public class PublicPages {
 		heroLogo.setFitWidth(425);
 		heroLogo.setFitHeight(425);
 		heroLogo.setPreserveRatio(true);
-
 
 		// HERO LAYOUT
 		HBox heroContents = new HBox(
@@ -271,7 +266,6 @@ public class PublicPages {
 
 		hero.setClip(heroClip);
 
-
 		// PAGE CONTENT
 		StackPane content = new StackPane(hero);
 		content.getStyleClass().add("landing-content");
@@ -279,14 +273,12 @@ public class PublicPages {
 			new Insets(45, 68, 66, 68)
 		);
 
-
 		// ROOT LAYOUT
 		BorderPane root = new BorderPane();
 
 		root.getStyleClass().add("landing-root");
 		root.setTop(header);
 		root.setCenter(content);
-
 
 		// LOAD SHARED CSS
 		Scene scene = new Scene(root, 1180, 745);
@@ -304,7 +296,6 @@ public class PublicPages {
 		mainStage.setScene(scene);
 		mainStage.setTitle("Seed Spreaders - Welcome");
 	}
-
 
 	public void showLoginPage() {
 	
@@ -335,45 +326,31 @@ public class PublicPages {
 		StackPane leftPanel = new StackPane(brandLockup);
 		leftPanel.getStyleClass().add("login-left-panel");
 	
-	
 		// RIGHT PANEL - LOGIN FORM
 		Label title = new Label("Sign in");
 		title.getStyleClass().add("login-title");
-	
 	
 		// USERNAME
 		Label usernameLabel = new Label("User ID");
 		usernameLabel.getStyleClass().add("login-field-label");
 	
 		TextField usernameField = new TextField();
-		usernameField.setPromptText("Enter username");
-		usernameField.getStyleClass().add("login-input");
-	
-	
-		// EMAIL (OPTIONAL - VISUAL ONLY)
-		Label emailLabel = new Label("Email (optional)");
-		emailLabel.getStyleClass().add("login-field-label");
-	
-		TextField emailField = new TextField();
-		emailField.setPromptText("Enter email");
-		emailField.getStyleClass().add("login-input");
-	
+		usernameField.setPromptText("Enter User ID");
+		usernameField.getStyleClass().add("login-input");	
 	
 		// PASSWORD
 		Label passwordLabel = new Label("Password");
 		passwordLabel.getStyleClass().add("login-field-label");
 	
 		PasswordField passwordField = new PasswordField();
-		passwordField.setPromptText("Enter password");
+		passwordField.setPromptText("Enter Password");
 		passwordField.getStyleClass().add("login-input");
-	
 	
 		// ERROR MESSAGE
 		Label warning = new Label();
 		warning.getStyleClass().add("login-warning");
 		warning.setWrapText(true);
-		warning.setMinHeight(18);
-	
+		warning.setMinHeight(18);	
 	
 		// LOGIN BUTTON
 		Button signIn = new Button("Sign in to dashboard  →");
@@ -405,27 +382,20 @@ public class PublicPages {
 		backButton.getStyleClass().add("login-back-link");
 	
 		backButton.setOnAction(event -> showLandingPage());
-	
-	
+
 		// ORGANIZE INPUT FIELDS
 		VBox fields = new VBox(
-			7,
-			usernameLabel, usernameField,
-			emailLabel, emailField,
-			passwordLabel, passwordField
+		    7,
+		    usernameLabel, usernameField,
+		    passwordLabel, passwordField
 		);
-	
+
+		// Add spacing before Password
 		VBox.setMargin(
-			emailLabel,
-			new Insets(7, 0, 0, 0)
+		    passwordLabel,
+		    new Insets(7, 0, 0, 0)
 		);
-	
-		VBox.setMargin(
-			passwordLabel,
-			new Insets(7, 0, 0, 0)
-		);
-	
-	
+
 		// FORM CONTAINER
 		VBox form = new VBox(
 			21,
@@ -440,12 +410,10 @@ public class PublicPages {
 		form.setMaxWidth(340);
 		form.setPrefWidth(340);
 	
-	
 		// RIGHT PANEL
 		StackPane rightPanel = new StackPane(form);
 		rightPanel.getStyleClass().add("login-right-panel");
 		rightPanel.setPadding(new Insets(45));
-	
 	
 		// COMBINE LEFT AND RIGHT PANELS
 		HBox root = new HBox(leftPanel, rightPanel);
@@ -462,10 +430,8 @@ public class PublicPages {
 		HBox.setHgrow(leftPanel, Priority.ALWAYS);
 		HBox.setHgrow(rightPanel, Priority.ALWAYS);
 	
-	
 		// CREATE SCENE
 		Scene scene = new Scene(root, 1180, 745);
-	
 	
 		// APPLY SHARED CSS
 		java.net.URL stylesheet =
@@ -482,7 +448,6 @@ public class PublicPages {
 		mainStage.setScene(scene);
 		mainStage.setTitle("Seed Spreaders - Sign in");
 	}
-
 
 	private User findUser(String username, String password) {
 		for (User user : state.users) {

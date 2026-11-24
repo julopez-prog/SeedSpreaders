@@ -1,0 +1,79 @@
+package application;
+
+import java.time.LocalDate;
+
+public class SeedReturn {
+	private int returnId;
+	private int requestId;
+	private String farmer;
+	private int lotId;
+	private String seedLabel;
+	private double amount;
+	private String status;
+	private LocalDate returnDate;
+
+	public SeedReturn(int returnId, int requestId, String farmer, int lotId,
+			String seedLabel, double amount, String status) {
+		this(returnId, requestId, farmer, lotId, seedLabel, amount, status, LocalDate.now());
+	}
+
+	public SeedReturn(int returnId, int requestId, String farmer, int lotId,
+			String seedLabel, double amount, String status, LocalDate returnDate) {
+		this.returnId = returnId;
+		this.requestId = requestId;
+		this.farmer = farmer;
+		this.lotId = lotId;
+		this.seedLabel = seedLabel;
+		this.amount = amount;
+		this.status = status;
+		this.returnDate = returnDate;
+	}
+
+	public int getReturnId() {
+		return returnId;
+	}
+
+	public String getReturnCode() {
+		return String.format("RET-%03d", returnId);
+	}
+
+	public int getRequestId() {
+		return requestId;
+	}
+
+	public String getFarmer() {
+		return farmer;
+	}
+
+	public int getLotId() {
+		return lotId;
+	}
+
+	public String getSeedLabel() {
+		return seedLabel;
+	}
+
+	public double getAmount() {
+		return amount;
+	}
+
+	public String getQuantityLabel() {
+		return amount + " kg";
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	public LocalDate getReturnDate() {
+		return returnDate;
+	}
+
+	public void setReturnDate(LocalDate returnDate) {
+		this.returnDate = returnDate;
+	}
+}

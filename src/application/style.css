@@ -1,0 +1,300 @@
+/* ========================
+LANDING PAGE 
+============================ */
+.landing-root {
+	
+    -fx-background-color: #F6F8F3;
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+}
+
+.landing-header {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: transparent transparent #E8EDE6 transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.landing-brand-name {
+    -fx-text-fill: #0C3026;
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+}
+
+.landing-brand-tagline {
+    -fx-text-fill: #6D8379;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+}
+
+.landing-login-button {
+    -fx-background-color: #17684D;
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 9;
+    -fx-padding: 12 24 12 24;
+    -fx-cursor: hand;
+}
+
+.landing-login-button:hover {
+    -fx-background-color: #0F543C;
+}
+
+.landing-content {
+    -fx-background-color: #F6F8F3;
+}
+
+.landing-hero {
+    -fx-background-color: #0C3026;
+    -fx-background-radius: 18;
+}
+
+.landing-title {
+    -fx-font-size: 48px;
+}
+
+.landing-title-white {
+    -fx-fill: #FFFFFF;
+    -fx-font-size: 48px;
+    -fx-font-weight: bold;
+}
+
+.landing-title-green {
+    -fx-fill: #64A57B;
+    -fx-font-size: 48px;
+    -fx-font-weight: bold;
+}
+
+.landing-title-lime {
+    -fx-fill: #CFDF85;
+    -fx-font-size: 48px;
+    -fx-font-weight: bold;
+}
+
+.landing-description {
+    -fx-text-fill: #D9E6DF;
+    -fx-font-size: 14px;
+    -fx-line-spacing: 4;
+}
+
+.landing-donate-button {
+    -fx-background-color: #216F55;
+    -fx-text-fill: #FFFFFF;
+    -fx-background-radius: 12;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-padding: 13 30 13 30;
+    -fx-cursor: hand;
+}
+
+.landing-donate-button:hover {
+    -fx-background-color: #328266;
+}
+
+
+/* =========================================
+   LOGIN PAGE
+   ========================================= */
+
+.login-root {
+    -fx-background-color: #F6F8F3;
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+}
+
+/* LEFT PANEL */
+.login-left-panel {
+    -fx-background-color: #0C3026;
+}
+
+/* RIGHT PANEL */
+.login-right-panel {
+    -fx-background-color: #F6F8F3;
+}
+
+/* LOGO TEXT */
+.login-brand-name {
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 29px;
+    -fx-font-weight: bold;
+    -fx-line-spacing: -1;
+}
+
+.login-brand-tagline {
+    -fx-text-fill: #77A589;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+}
+
+/* SIGN IN HEADING */
+.login-title {
+    -fx-text-fill: #18241E;
+    -fx-font-size: 34px;
+    -fx-font-weight: bold;
+}
+
+/* FIELD LABELS */
+.login-field-label {
+    -fx-text-fill: #283B34;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+/* INPUT FIELDS */
+.login-input {
+    -fx-pref-height: 40px;
+    -fx-min-height: 40px;
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #DCE4DE;
+    -fx-border-width: 1px;
+    -fx-border-radius: 5px;
+    -fx-background-radius: 5px;
+    -fx-text-fill: #173429;
+    -fx-prompt-text-fill: #A6B0AA;
+    -fx-font-size: 13px;
+    -fx-padding: 0 12 0 12;
+}
+
+/* INPUT FOCUS */
+.login-input:focused {
+    -fx-border-color: #216F55;
+    -fx-border-width: 1.5px;
+    -fx-background-insets: 0;
+}
+
+/* LOGIN BUTTON */
+.login-submit {
+    -fx-pref-height: 43px;
+    -fx-min-height: 43px;
+    -fx-background-color: #17684D;
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+}
+
+.login-submit:hover {
+    -fx-background-color: #0E543D;
+}
+
+/* ERROR MESSAGE */
+.login-warning {
+    -fx-text-fill: #BE3E3E;
+    -fx-font-size: 12px;
+}
+
+/* BACK BUTTON */
+.login-back-link {
+    -fx-background-color: transparent;
+    -fx-text-fill: #517368;
+    -fx-font-size: 12px;
+    -fx-cursor: hand;
+    -fx-padding: 0;
+}
+
+.login-back-link:hover {
+    -fx-text-fill: #17684D;
+    -fx-underline: true;
+}
+
+
+/* ========================
+   DONATION MODAL
+   ======================== */
+.donate-root {
+    -fx-background-color: transparent;
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+}
+.donate-card {
+    -fx-background-color: white;
+    -fx-background-radius: 13;
+    -fx-border-color: #E6E9E6;
+    -fx-border-width: 1;
+    -fx-border-radius: 13;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.19), 16, 0.1, 0, 6);
+}
+.donate-title-row {
+    -fx-padding: 23 26 20 26;
+}
+.donate-title {
+    -fx-text-fill: #202622;
+    -fx-font-size: 19px;
+    -fx-font-weight: bold;
+}
+.donate-divider {
+    -fx-padding: 0;
+    -fx-opacity: 0.55;
+}
+.donate-body {
+    -fx-padding: 21 26 12 26;
+}
+.donate-field-label {
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #404B44;
+}
+.donate-input {
+    -fx-pref-height: 36px;
+    -fx-min-height: 36px;
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #D8DFDB;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-padding: 0 10;
+    -fx-font-size: 12px;
+    -fx-text-fill: #273A30;
+    -fx-prompt-text-fill: #A1ABA4;
+}
+.donate-input:focused {
+    -fx-border-color: #20654C;
+    -fx-border-width: 1.5;
+}
+.donate-amount-chip {
+    -fx-background-color: white;
+    -fx-border-color: #D8DFDB;
+    -fx-border-width: 1;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-text-fill: #275240;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 0;
+    -fx-cursor: hand;
+}
+.donate-amount-chip:selected {
+    -fx-background-color: #E6F2EB;
+    -fx-border-color: #186547;
+}
+.donate-feedback {
+    -fx-font-size: 11px;
+}
+.donate-feedback-error { -fx-text-fill: #B63D3D; }
+.donate-feedback-success { -fx-text-fill: #17684D; }
+.donate-actions {
+    -fx-padding: 18 26 22 26;
+}
+.donate-cancel-button {
+    -fx-background-color: #FFFFFF;
+    -fx-text-fill: #D65B51;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-border-color: #E0E4E0;
+    -fx-border-radius: 9;
+    -fx-background-radius: 9;
+    -fx-min-width: 84px;
+    -fx-min-height: 37px;
+    -fx-cursor: hand;
+}
+.donate-cancel-button:hover { -fx-background-color: #FFF5F3; }
+.donate-save-button {
+    -fx-background-color: #17684D;
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 9;
+    -fx-min-width: 117px;
+    -fx-min-height: 37px;
+    -fx-cursor: hand;
+}
+.donate-save-button:hover { -fx-background-color: #0F543C; }
+.donate-save-button:disabled { -fx-opacity: 0.75; }

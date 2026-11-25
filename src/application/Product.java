@@ -1,129 +1,83 @@
-package application;
+package application; // root application package
 
-public class Product {
-	private String name;
-	private double price;
-	private double amount;
-	private int lotID;
-	private String location;
-	private String variety;
-	private String description;
-	private String unit;
-	private double minThreshold;
-	private String expiryDate;
+// represents a seed inventory lot stored in the seed bank
+public class Product { // declare product class
+	private String name; // crop name like Okra Seeds or Rice Seeds
+	private double price; // monetary value per kilogram in php
+	private double amount; // available stock in kilograms
+	private int lotID; // unique lot number
+	private String location; // storage bin or warehouse bay
+	private String variety; // botanical or local variety name
+	private String description; // notes on crop yield and origin
 
-	public Product(String name, double price, double amount, int lotID, String location, String variety, String description) {
-		this(name, price, amount, lotID, location, variety, description, "kg", 20.0, "2027-12-31");
+	// constructor for a seed product lot
+	public Product(String name, double price, double amount, int lotID, String location, String variety, String description) { // define product method
+		this.name = name; // assign crop name
+		this.price = price; // assign unit price per kg
+		this.amount = amount; // assign stock quantity
+		this.lotID = lotID; // assign lot id
+		this.location = location; // assign storage location
+		this.variety = variety; // assign seed variety
+		this.description = description; // assign crop description
 	}
 
-	public Product(String name, double price, double amount, int lotID, String location,
-			String variety, String description, String unit, double minThreshold, String expiryDate) {
-		this.name = name;
-		this.price = price;
-		this.amount = amount;
-		this.lotID = lotID;
-		this.location = location;
-		this.variety = variety;
-		this.description = description;
-		this.unit = unit;
-		this.minThreshold = minThreshold;
-		this.expiryDate = expiryDate;
+	public String getName() { // return crop name
+		return name; // crop name string
 	}
 
-	public String getName() {
-		return name;
+	public void setName(String name) { // update crop name
+		this.name = name; // store crop name
 	}
 
-	public void setName(String name) {
-		this.name = name;
+	public double getPrice() { // return price per kg
+		return price; // price value
 	}
 
-	public double getPrice() {
-		return price;
+	public void setPrice(double price) { // update price per kg
+		this.price = price; // store price value
 	}
 
-	public void setPrice(double price) {
-		this.price = price;
+	public double getAmount() { // return available stock in kg
+		return amount; // stock weight
 	}
 
-	public double getAmount() {
-		return amount;
+	public void setAmount(double amount) { // update available stock
+		this.amount = amount; // store new stock weight
 	}
 
-	public void setAmount(double amount) {
-		this.amount = amount;
+	public int getLotID() { // return lot id
+		return lotID; // integer lot id
 	}
 
-	public int getLotID() {
-		return lotID;
+	public void setLotID(int lotID) { // update lot id
+		this.lotID = lotID; // store new lot id
 	}
 
-	public void setLotID(int lotID) {
-		this.lotID = lotID;
+	public String getLocation() { // return storage location
+		return location; // storage location string
 	}
 
-	public String getLotCode() {
-		return String.format("#%03d", lotID);
+	public void setLocation(String location) { // update storage location
+		this.location = location; // store storage location
 	}
 
-	public String getLocation() {
-		return location;
+	public String getVariety() { // return variety name
+		return variety; // variety string
 	}
 
-	public void setLocation(String location) {
-		this.location = location;
+	public void setVariety(String variety) { // update variety name
+		this.variety = variety; // store variety string
 	}
 
-	public String getVariety() {
-		return variety;
+	public String getDescription() { // return description
+		return description; // description text
 	}
 
-	public void setVariety(String variety) {
-		this.variety = variety;
+	public void setDescription(String description) { // update description
+		this.description = description; // store description text
 	}
 
-	public String getDescription() {
-		return description;
-	}
-
-	public void setDescription(String description) {
-		this.description = description;
-	}
-
-	public String getUnit() {
-		return unit;
-	}
-
-	public void setUnit(String unit) {
-		this.unit = unit;
-	}
-
-	public double getMinThreshold() {
-		return minThreshold;
-	}
-
-	public void setMinThreshold(double minThreshold) {
-		this.minThreshold = minThreshold;
-	}
-
-	public String getExpiryDate() {
-		return expiryDate;
-	}
-
-	public void setExpiryDate(String expiryDate) {
-		this.expiryDate = expiryDate;
-	}
-
-	public String getQuantityLabel() {
-		return amount + " " + (unit == null || unit.isEmpty() ? "kg" : unit);
-	}
-
-	public String getStockStatus() {
-		if (amount <= 0) {
-			return "Out of Stock";
-		} else if (amount <= minThreshold) {
-			return "Low Stock";
-		}
-		return "Available";
+	public double getTotalValue() { // compute total php value of this lot
+		return Math.round(price * amount * 100.0) / 100.0; // price times weight rounded to 2 decimals
 	}
 }

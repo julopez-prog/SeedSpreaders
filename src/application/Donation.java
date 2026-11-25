@@ -1,31 +1,33 @@
-package application;
+package application; // root application package
 
-public class Donation {
-	private String donorName;
-	private String email;
-	private double amount;
-	private String message;
+// represents a monetary donation submitted from the landing page
+public class Donation { // declare donation class
+	private String donorName; // name of the donor
+	private String email; // contact email of the donor
+	private double amount; // donation amount in php
+	private String message; // optional message of support
 
-	public Donation(String donorName, String email, double amount, String message) {
-		this.donorName = donorName;
-		this.email = email;
-		this.amount = amount;
-		this.message = message;
+	// constructor for a donation record
+	public Donation(String donorName, String email, double amount, String message) { // define donation method
+		this.donorName = donorName; // assign donor name
+		this.email = email; // assign donor email
+		this.amount = amount; // assign donation amount
+		this.message = message; // assign donor message
 	}
 
-	public String getDonorName() {
-		return donorName;
+	public String getDonorName() { // return donor name
+		return donorName; // donor name string
 	}
 
-	public String getEmail() {
-		return email;
+	public String getEmail() { // return donor email
+		return email; // email string
 	}
 
-	public double getAmount() {
-		return amount;
+	public double getAmount() { // return donation amount
+		return amount; // php amount
 	}
 
-	public String getMessage() {
-		return message;
+	public String getMessage() { // return donor message
+		return message; // message string
 	}
 }

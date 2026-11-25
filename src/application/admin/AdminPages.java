@@ -1,1332 +1,1225 @@
-package application.admin;
+package application.admin; // admin views and management workflows
 
-import application.Donation;
-import application.Product;
-import application.SeedRequest;
-import application.SeedReturn;
-import application.User;
-import application.shared.AppState;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.collections.FXCollections;
-import javafx.collections.transformation.FilteredList;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Node;
-import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
-import javafx.scene.control.PasswordField;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
-import javafx.scene.control.TableCell;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
-import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.ColumnConstraints;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.VBox;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.stage.StageStyle;
+import application.Donation; // donation model
+import application.Product; // seed inventory model
+import application.SeedRequest; // seed request model
+import application.SeedReturn; // seed return model
+import application.User; // user account model
+import application.shared.AppState; // shared data state and ui helpers
+import javafx.beans.property.SimpleStringProperty; // computed string property for table columns
+import javafx.collections.transformation.FilteredList; // live search filter wrapper
+import javafx.geometry.Insets; // layout padding
+import javafx.geometry.Pos; // container alignment
+import javafx.scene.Node; // scene graph node
+import javafx.scene.Scene; // application scene
+import javafx.scene.control.Button; // button control
+import javafx.scene.control.ComboBox; // dropdown selector
+import javafx.scene.control.Label; // text label
+import javafx.scene.control.PasswordField; // password input
+import javafx.scene.control.ScrollPane; // scrollable viewport
+import javafx.scene.control.Separator; // visual divider line
+import javafx.scene.control.TableCell; // custom table cell
+import javafx.scene.control.TableColumn; // table column
+import javafx.scene.control.TableView; // table view
+import javafx.scene.control.TextField; // text input
+import javafx.scene.control.cell.PropertyValueFactory; // model property binding
+import javafx.scene.layout.BorderPane; // main shell layout
+import javafx.scene.layout.ColumnConstraints; // grid column sizing
+import javafx.scene.layout.GridPane; // form grid layout
+import javafx.scene.layout.HBox; // horizontal container
+import javafx.scene.layout.Priority; // flex growth priority
+import javafx.scene.layout.Region; // flexible spacer
+import javafx.scene.layout.VBox; // vertical container
+import javafx.stage.Modality; // modal dialog modality
+import javafx.stage.Stage; // stage window
+import javafx.stage.StageStyle; // stage border style
 
-import java.time.LocalDate;
-import java.util.Comparator;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.time.LocalDate; // current date and due date calculation
+import java.util.List; // list collection
+import java.util.stream.Collectors; // stream filtering helper
 
-public class AdminPages {
+// handles all admin dashboard tabs, user management, inventory, and transactions
+public class AdminPages { // declare adminpages class
+	private final Stage mainStage; // primary application stage
+	private final AppState state; // shared application state
+	private final Runnable onLogout; // callback returning to landing page
 
-	private final AppState state;
-	private final Runnable onLogout;
+	private String activeTab = "Overview"; // currently selected sidebar route
+	private BorderPane shellRoot; // root shell container for swapping tab content
+	private Label lblPageTitle; // top bar page heading
 
-	public AdminPages(AppState state, Runnable onLogout) {
-		this.state = state;
-		this.onLogout = onLogout;
+	// constructor for admin screens controller
+	public AdminPages(Stage stage, AppState state, Runnable onLogout) { // define adminpages method
+		this.mainStage = stage; // store primary stage
+		this.state = state; // store shared state
+		this.onLogout = onLogout; // store logout callback
+	}
+
+	// display the admin shell with persistent sidebar, header, and active tab
+	public void showAdminShell() { // define showadminshell method
+		shellRoot = new BorderPane(); // initialize root border pane
+		shellRoot.setStyle("-fx-background-color: " + AppState.BG_PAGE + ";"); // set warm off-white background
+
+		shellRoot.setLeft(buildSidebar()); // attach left forest-green navigation sidebar
+		shellRoot.setTop(buildTopHeader()); // attach top bar with title and help button
+		switchTab(activeTab); // load active route content into center
+
+		Scene scene = new Scene(shellRoot, 1220, 760); // create admin scene
+		mainStage.setScene(scene); // display admin scene
+		mainStage.setTitle("Seed Spreaders - Admin Dashboard"); // set window title
+	}
+
+	// build the left navigation sidebar with logo, route buttons, and logout
+	private VBox buildSidebar() { // define buildsidebar helper
+		VBox sidebar = new VBox(8); // vertical sidebar stack
+		sidebar.setPrefWidth(245); // fixed sidebar width
+		sidebar.setMinWidth(245); // prevent shrinking
+		sidebar.setPadding(new Insets(24, 16, 22, 16)); // inner sidebar padding
+		sidebar.setStyle("-fx-background-color: " + AppState.FOREST_DARK + ";"); // dark forest green fill
+
+		Node logo = state.buildLogo(0.92, true); // build white logo lockup for dark sidebar
+		VBox logoBox = new VBox(logo); // wrapper for bottom margin
+		logoBox.setPadding(new Insets(0, 6, 24, 6)); // space below logo
+
+		Button btnOverview = createNavButton("Overview", "Overview"); // dashboard overview route
+		Button btnInventory = createNavButton("Inventory", "Inventory"); // seed inventory route
+		Button btnUsers = createNavButton("User Management", "Users"); // user management route
+		Button btnTransactions = createNavButton("Transactions", "Transactions"); // requests & returns route
+		Button btnDonations = createNavButton("Donations", "Donations"); // community donations route
+
+		Region spacer = new Region(); // push user card and logout to bottom
+		VBox.setVgrow(spacer, Priority.ALWAYS); // fill remaining vertical space
+
+		Label lblRole = new Label("ADMINISTRATOR"); // role badge text
+		lblRole.setStyle("-fx-text-fill: #8ec9a4; -fx-font-size: 10px; -fx-font-weight: bold;"); // sage green text
+
+		Label lblName = new Label(state.currentUser != null ? state.currentUser.getFullName() : "Admin"); // active admin name
+		lblName.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 13px; -fx-font-weight: bold;"); // white bold text
+
+		VBox userCard = new VBox(3, lblRole, lblName); // session info box
+		userCard.setPadding(new Insets(12)); // inner padding
+		userCard.setStyle("-fx-background-color: rgba(255,255,255,0.08); -fx-background-radius: 10;"); // translucent dark card
+
+		Button btnLogout = new Button("Log Out"); // logout button
+		btnLogout.setMaxWidth(Double.MAX_VALUE); // full sidebar width
+		btnLogout.setStyle("-fx-background-color: rgba(255,255,255,0.12); -fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-font-size: 12px; -fx-background-radius: 8; -fx-padding: 10 14 10 14; -fx-cursor: hand;"); // subtle light button on dark green
+		btnLogout.setOnAction(e -> { // attach click listener
+			state.saveUsers(); // save user updates before logout
+			state.saveProducts(); // save inventory updates before logout
+			state.saveRequests(); // save request updates before logout
+			state.saveReturns(); // save return updates before logout
+			state.currentUser = null; // clear active session
+			onLogout.run(); // navigate back to landing page
+		});
+
+		sidebar.getChildren().addAll(logoBox, btnOverview, btnInventory, btnUsers, btnTransactions, btnDonations, spacer, userCard, btnLogout); // assemble sidebar items
+		return sidebar; // return sidebar container
+	}
+
+	// build a styled sidebar navigation button
+	private Button createNavButton(String label, String routeKey) { // define createnavbutton helper
+		Button btn = new Button(label); // create route button
+		btn.setMaxWidth(Double.MAX_VALUE); // stretch across sidebar
+		btn.setAlignment(Pos.CENTER_LEFT); // align text left
+		boolean selected = activeTab.equals(routeKey); // check if currently active route
+		if (selected) { // active tab styling
+			btn.setStyle("-fx-background-color: #1d6b50; -fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-font-size: 13px; -fx-background-radius: 9; -fx-padding: 11 16 11 16; -fx-cursor: hand;"); // highlighted green pill
+		} else { // inactive tab styling
+			btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #cfe0d7; -fx-font-weight: bold; -fx-font-size: 13px; -fx-background-radius: 9; -fx-padding: 11 16 11 16; -fx-cursor: hand;"); // muted sage text
+		}
+		btn.setOnAction(e -> switchTab(routeKey)); // switch tab when clicked
+		return btn; // return styled nav button
+	}
+
+	// build the top header bar with page title and per-tab help button (no bell icon)
+	private HBox buildTopHeader() { // define buildtopheader helper
+		lblPageTitle = new Label("Admin Overview"); // dynamic page heading
+		lblPageTitle.setStyle("-fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_DARK + ";"); // dark heading text
+
+		Region spacer = new Region(); // push help button right
+		HBox.setHgrow(spacer, Priority.ALWAYS); // expand spacer horizontally
+
+		Button btnHelp = new Button("? Help"); // per-tab manual help button
+		btnHelp.setStyle(state.outlineButtonStyle()); // outline button style
+		btnHelp.setOnAction(e -> openTabHelp()); // open feature overview for current tab
+
+		HBox header = new HBox(12, lblPageTitle, spacer, btnHelp); // header bar container
+		header.setAlignment(Pos.CENTER_LEFT); // align vertically
+		header.setPadding(new Insets(18, 28, 18, 28)); // outer header padding
+		header.setStyle("-fx-background-color: #ffffff; -fx-border-color: transparent transparent #e3ebe6 transparent;"); // white bar with bottom border
+		return header; // return header bar
+	}
+
+	// switch the active tab content and refresh sidebar highlight
+	private void switchTab(String routeKey) { // define switchtab helper
+		this.activeTab = routeKey; // record active route
+		shellRoot.setLeft(buildSidebar()); // rebuild sidebar to update active highlight
+
+		Node content; // target tab view node
+		switch (routeKey) { // continue statement
+			case "Inventory": // continue statement
+				lblPageTitle.setText("Seed Inventory"); // update header title
+				content = createInventoryPane(); // build inventory view
+				break; // exit switch block
+			case "Users": // continue statement
+				lblPageTitle.setText("User Management"); // update header title
+				content = createUserManagementPane(); // build user management view
+				break; // exit switch block
+			case "Transactions": // continue statement
+				lblPageTitle.setText("Seed Requests & Returns"); // update header title
+				content = createAdminTransactionsPane(); // build transactions view
+				break; // exit switch block
+			case "Donations": // continue statement
+				lblPageTitle.setText("Community Donations"); // update header title
+				content = createAdminDonationsPane(); // build donations view
+				break; // exit switch block
+			default: // default route case
+				lblPageTitle.setText("Admin Overview"); // update header title
+				content = createOverviewPane(); // build overview dashboard
+				break; // exit switch block
+		}
+
+		ScrollPane scroller = new ScrollPane(content); // wrap tab content in scroll pane
+		scroller.setFitToWidth(true); // stretch content to viewport width
+		scroller.setStyle("-fx-background: " + AppState.BG_PAGE + "; -fx-background-color: " + AppState.BG_PAGE + ";"); // match page background
+		shellRoot.setCenter(scroller); // set center content
+	}
+
+	// show feature guide popup tailored to the currently active admin tab
+	private void openTabHelp() { // define opentabhelp helper
+		switch (activeTab) { // continue statement
+			case "Inventory": // continue statement
+				state.showTabHelpDialog("Seed Inventory", // pass value
+						"\u2022 Monitor total plant varieties, available seed stock (kg), and storage lots.\n" // continue statement
+								+ "\u2022 Click '+ Add Seed Lot' to register new seed batches in the bank.\n" // continue statement
+								+ "\u2022 Click 'View Details' on any row to edit prices, quantities, or delete a lot."); // inventory help text
+				break; // exit switch block
+			case "Users": // continue statement
+				state.showTabHelpDialog("User Management", // pass value
+						"\u2022 Click '+ Create Account' to register new Farmer or Admin accounts directly (pre-verified).\n" // continue statement
+								+ "\u2022 Click 'View Details' on any account to inspect Farmer Info, Farm Info, and Pending Seed Requests/Returns.\n" // continue statement
+								+ "\u2022 Inside View Details, you can Assign/Revoke Admin privileges or Suspend/Unsuspend users with a reason."); // user management help text
+				break; // exit switch block
+			case "Transactions": // continue statement
+				state.showTabHelpDialog("Seed Requests & Returns", // pass value
+						"\u2022 Review pending farmer seed requests in the top table and Approve or Reject them.\n" // continue statement
+								+ "\u2022 Approving a request deducts seed stock and assigns a 30-day harvest repayment due date.\n" // continue statement
+								+ "\u2022 Accepting a harvest seed return replenishes stock and clears any overdue loan status."); // transactions help text
+				break; // exit switch block
+			case "Donations": // continue statement
+				state.showTabHelpDialog("Community Donations", // pass value
+						"\u2022 View all monetary contributions submitted from the public landing page.\n" // continue statement
+								+ "\u2022 Tracks donor names, emails, amounts in PHP, and messages of support."); // donations help text
+				break; // exit switch block
+			default: // default route case
+				state.showTabHelpDialog("Admin Overview", // pass value
+						"\u2022 View live counts for Pending Seed Requests, Pending Seed Returns, Missing Returns (Late Deadlines), and Inventory Info.\n" // continue statement
+								+ "\u2022 Inspect late/overdue seed loans directly in the Missing Returns table below."); // overview help text
+				break; // exit switch block
+		}
 	}
 
 	// =========================================================================
-	// PERSISTENT SIDEBAR + HEADER SHELL (MATCHING FIGMA DASHBOARD SCREENS)
+	// 1. OVERVIEW TAB (Pending Requests, Pending Returns, Missing Returns, Inventory Info)
 	// =========================================================================
-	public void showAdminShell() {
-		BorderPane shell = new BorderPane();
-		shell.setStyle("-fx-background-color: " + state.bgPage() + ";");
+	private VBox createOverviewPane() { // define createoverviewpane helper
+		long pendingReqCount = state.requestData.stream().filter(r -> "Pending".equalsIgnoreCase(r.getStatus())).count(); // count waiting requests
+		long pendingRetCount = state.returnData.stream().filter(r -> "Pending".equalsIgnoreCase(r.getStatus())).count(); // count waiting returns
+		List<SeedRequest> lateRequests = state.requestData.stream().filter(SeedRequest::isOverdue).collect(Collectors.toList()); // filter overdue active loans
+		double totalStockKg = state.productData.stream().mapToDouble(Product::getAmount).sum(); // sum available stock kg
 
-		// Left Dark Forest Sidebar (#0c3026)
-		VBox sidebar = new VBox(8);
-		sidebar.setPrefWidth(250);
-		sidebar.setMinWidth(250);
-		sidebar.setPadding(new Insets(26, 16, 24, 16));
-		sidebar.setStyle("-fx-background-color: " + state.FOREST_DARK + ";");
+		VBox cardReq = buildMetricCard("Pending Seed Requests", String.valueOf(pendingReqCount), "Awaiting admin review", "#9a6700"); // metric card 1
+		VBox cardRet = buildMetricCard("Pending Seed Returns", String.valueOf(pendingRetCount), "Awaiting quality inspection", "#17684d"); // metric card 2
+		VBox cardLate = buildMetricCard("Missing Returns (Late)", String.valueOf(lateRequests.size()), "Past return deadline", "#b42318"); // metric card 3
+		VBox cardInv = buildMetricCard("Inventory Info", String.format("%.1f kg", totalStockKg), state.productData.size() + " active storage lots", AppState.FOREST_DARK); // metric card 4
 
-		Node logo = state.buildLogo(0.95, true);
-		VBox logoWrap = new VBox(logo);
-		logoWrap.setPadding(new Insets(0, 8, 28, 8));
-
-		Button navDashboard = state.createNavButton(this::showAdminShell, state.t("Dashboard", "Dashboard"), "Dashboard", true);
-		Button navInventory = state.createNavButton(this::showAdminShell, state.t("Inventory", "Imbentaryo"), "Inventory", true);
-		Button navFarmers = state.createNavButton(this::showAdminShell, state.t("Farmers & Users", "Mga Farmer at User"), "Farmers", true);
-		Button navTransactions = state.createNavButton(this::showAdminShell, state.t("Transactions", "Mga Transaksyon"), "Transactions", true);
-		Button navDonations = state.createNavButton(this::showAdminShell, state.t("Donations", "Mga Donasyon"), "Donations", true);
-
-		Region spacer = new Region();
-		VBox.setVgrow(spacer, Priority.ALWAYS);
-
-		Label lblRoleBadge = new Label("ADMIN \u2022 " + state.currentUser.getUsername());
-		lblRoleBadge.setStyle("-fx-text-fill: #9cb8ad; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 0 0 6 12;");
-
-		Button btnLogout = new Button(state.t("Logout", "Mag-log Out"));
-		btnLogout.setMaxWidth(Double.MAX_VALUE);
-		btnLogout.setStyle("-fx-background-color: rgba(255,255,255,0.10); -fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-background-radius: 10; -fx-padding: 10 16 10 16; -fx-cursor: hand;");
-		btnLogout.setOnAction(e -> {
-			state.saveProducts(state.productPath, state.productData);
-			state.saveUsers(state.userPath, state.users);
-			state.currentUser = null;
-			onLogout.run();
-		});
-
-		sidebar.getChildren().addAll(logoWrap, navDashboard, navInventory, navFarmers, navTransactions, navDonations, spacer, lblRoleBadge, btnLogout);
-
-		// Main Content Area
-		VBox centerWrapper = new VBox(18);
-		centerWrapper.setPadding(new Insets(24, 32, 24, 32));
-		centerWrapper.setStyle("-fx-background-color: " + state.bgPage() + ";");
-
-		HBox topHeader = state.buildTopHeader(state.getAdminPageTitle(), true, this::showAdminShell);
-
-		Node pageBody;
-		switch (state.currentRoute) {
-			case "Inventory":
-				pageBody = buildAdminInventoryView();
-				break;
-			case "Farmers":
-				pageBody = buildAdminUserManagementView();
-				break;
-			case "Transactions":
-				pageBody = buildAdminTransactionsView();
-				break;
-			case "Donations":
-				pageBody = buildAdminDonationsView();
-				break;
-			default:
-				pageBody = buildAdminDashboardOverview();
-				break;
+		HBox metricsRow = new HBox(16, cardReq, cardRet, cardLate, cardInv); // horizontal KPI strip
+		for (Node n : metricsRow.getChildren()) { // give all 4 cards equal width
+			HBox.setHgrow(n, Priority.ALWAYS); // expand evenly
 		}
-		VBox.setVgrow(pageBody, Priority.ALWAYS);
 
-		centerWrapper.getChildren().addAll(topHeader, pageBody);
+		// Missing Returns (Late Deadline) Table Card
+		Label lblLateTitle = new Label("Missing Returns (Late Deadline)"); // section title
+		lblLateTitle.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_DARK + ";"); // bold heading
 
-		shell.setLeft(sidebar);
-		shell.setCenter(centerWrapper);
+		Button btnGoTx = new Button("Review in Transactions \u2192"); // shortcut button to transactions tab
+		btnGoTx.setStyle(state.outlineButtonStyle()); // outline style
+		btnGoTx.setOnAction(e -> switchTab("Transactions")); // open transactions view
 
-		state.applyScene(new Scene(shell, 1200, 780), "Seed Spreaders - Admin (" + state.currentRoute + ")");
+		Region spacer = new Region(); // spacer between title and shortcut button
+		HBox.setHgrow(spacer, Priority.ALWAYS); // expand spacer
+		HBox lateHeader = new HBox(10, lblLateTitle, spacer, btnGoTx); // header row
+		lateHeader.setAlignment(Pos.CENTER_LEFT); // center vertically
+
+		TableView<SeedRequest> lateTable = new TableView<>(); // table of overdue loans
+		lateTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); // stretch columns evenly
+		lateTable.setPrefHeight(220); // table height
+		lateTable.setPlaceholder(new Label("No missing returns! All active seed loans are within their return deadlines.")); // empty message
+
+		TableColumn<SeedRequest, Integer> colId = new TableColumn<>("Request ID"); // id column
+		colId.setCellValueFactory(new PropertyValueFactory<>("requestId")); // bind requestId
+
+		TableColumn<SeedRequest, String> colFarmer = new TableColumn<>("Farmer"); // farmer column
+		colFarmer.setCellValueFactory(new PropertyValueFactory<>("farmer")); // bind farmer username
+
+		TableColumn<SeedRequest, String> colSeed = new TableColumn<>("Seed Variety"); // seed column
+		colSeed.setCellValueFactory(new PropertyValueFactory<>("seedLabel")); // bind seedLabel
+
+		TableColumn<SeedRequest, Double> colQty = new TableColumn<>("Borrowed (kg)"); // weight column
+		colQty.setCellValueFactory(new PropertyValueFactory<>("amount")); // bind amount
+
+		TableColumn<SeedRequest, String> colDue = new TableColumn<>("Due Date"); // deadline column
+		colDue.setCellValueFactory(new PropertyValueFactory<>("dueDate")); // bind dueDate
+
+		TableColumn<SeedRequest, String> colAlert = new TableColumn<>("Status"); // overdue badge column
+		colAlert.setCellValueFactory(cell -> new SimpleStringProperty("OVERDUE")); // show OVERDUE pill
+		colAlert.setCellFactory(state.createStatusBadgeCell()); // apply red badge renderer
+
+		lateTable.getColumns().addAll(colId, colFarmer, colSeed, colQty, colDue, colAlert); // attach columns
+		lateTable.getItems().setAll(lateRequests); // populate overdue items
+
+		VBox lateCard = new VBox(12, lateHeader, lateTable); // wrap table in white card
+		lateCard.setStyle(state.cardStyle()); // apply card css
+
+		// Inventory Info Summary Table Card
+		Label lblInvTitle = new Label("Inventory Info by Seed Lot"); // inventory summary heading
+		lblInvTitle.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_DARK + ";"); // bold heading
+
+		Button btnGoInv = new Button("Manage Inventory \u2192"); // shortcut to inventory tab
+		btnGoInv.setStyle(state.outlineButtonStyle()); // outline button style
+		btnGoInv.setOnAction(e -> switchTab("Inventory")); // open inventory view
+
+		Region invSpacer = new Region(); // spacer
+		HBox.setHgrow(invSpacer, Priority.ALWAYS); // expand spacer
+		HBox invHeader = new HBox(10, lblInvTitle, invSpacer, btnGoInv); // header row
+		invHeader.setAlignment(Pos.CENTER_LEFT); // align vertically
+
+		TableView<Product> invPreview = new TableView<>(); // quick inventory table
+		invPreview.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); // stretch columns
+		invPreview.setPrefHeight(220); // table height
+
+		TableColumn<Product, Integer> colLot = new TableColumn<>("Lot ID"); // lot id column
+		colLot.setCellValueFactory(new PropertyValueFactory<>("lotID")); // bind lotID
+
+		TableColumn<Product, String> colCrop = new TableColumn<>("Seed Product"); // crop name column
+		colCrop.setCellValueFactory(new PropertyValueFactory<>("name")); // bind name
+
+		TableColumn<Product, String> colVar = new TableColumn<>("Variety"); // variety column
+		colVar.setCellValueFactory(new PropertyValueFactory<>("variety")); // bind variety
+
+		TableColumn<Product, Double> colStock = new TableColumn<>("Available (kg)"); // stock column
+		colStock.setCellValueFactory(new PropertyValueFactory<>("amount")); // bind amount
+
+		TableColumn<Product, Double> colVal = new TableColumn<>("Value / kg (\u20b1)"); // price column
+		colVal.setCellValueFactory(new PropertyValueFactory<>("price")); // bind price
+
+		TableColumn<Product, String> colLoc = new TableColumn<>("Storage Location"); // location column
+		colLoc.setCellValueFactory(new PropertyValueFactory<>("location")); // bind location
+
+		invPreview.getColumns().addAll(colLot, colCrop, colVar, colStock, colVal, colLoc); // attach columns
+		invPreview.setItems(state.productData); // bind observable inventory list
+
+		VBox invCard = new VBox(12, invHeader, invPreview); // wrap in white card
+		invCard.setStyle(state.cardStyle()); // apply card css
+
+		VBox root = new VBox(20, metricsRow, lateCard, invCard); // main overview container
+		root.setPadding(new Insets(24, 28, 28, 28)); // outer margins
+		return root; // return overview view
+	}
+
+	// helper to build a KPI stat card
+	private VBox buildMetricCard(String title, String value, String subtitle, String accentColor) { // define buildmetriccard helper
+		Label lblTitle = new Label(title); // card label
+		lblTitle.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_MUTED + ";"); // muted title
+
+		Label lblValue = new Label(value); // main numeric metric
+		lblValue.setStyle("-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: " + accentColor + ";"); // colored number
+
+		Label lblSub = new Label(subtitle); // supporting note
+		lblSub.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppState.TEXT_MUTED + ";"); // muted caption
+
+		VBox card = new VBox(6, lblTitle, lblValue, lblSub); // stack labels
+		card.setStyle(state.cardStyle()); // apply white card style
+		return card; // return stat card
 	}
 
 	// =========================================================================
-	// ADMIN OVERVIEW DASHBOARD (SLIDE 3 + MEDIUM PRIORITY SPECS)
+	// 2. INVENTORY TAB (Without Save and Quit button)
 	// =========================================================================
-	private ScrollPane buildAdminDashboardOverview() {
-		VBox container = new VBox(18);
-		container.setPadding(new Insets(2, 4, 16, 2));
+	private VBox createInventoryPane() { // define createinventorypane helper
+		state.updateSummaryMetrics(); // ensure labels match current inventory
 
-		long pendingReqCount = state.requestData.stream().filter(r -> "Pending".equalsIgnoreCase(r.getStatus())).count();
-		long pendingRetCount = state.returnData.stream().filter(r -> "Pending".equalsIgnoreCase(r.getStatus())).count();
-		long missingRetCount = state.requestData.stream().filter(SeedRequest::isOverdue).count();
-		double totalStockKg = state.productData.stream().mapToDouble(Product::getAmount).sum();
-		int totalVarieties = (int) state.productData.stream().map(Product::getVariety).distinct().count();
+		VBox cardVar = new VBox(4, new Label("Plant Varieties"), state.lblVarieties); // varieties metric card
+		cardVar.setStyle(state.cardStyle()); // card style
+		state.lblVarieties.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: " + AppState.FOREST_DARK + ";"); // value style
 
-		// Top 4 Metric Cards (Matching Figma card proportions + Medium Priority specs)
-		HBox topCards = new HBox(16);
-		topCards.getChildren().addAll(
-				state.createStatCard(state.t("Pending Seed Requests", "Mga Pending na Request"),
-						String.valueOf(pendingReqCount),
-						state.t("Awaiting admin approval", "Nag-aantay ng approval ng admin"), "#d97706"),
-				state.createStatCard(state.t("Pending Seed Returns", "Mga Pending na Return"),
-						String.valueOf(pendingRetCount),
-						state.t("Awaiting quality inspection", "Ie-inspect pa ng admin"), state.PRIMARY_GREEN),
-				state.createStatCard(state.t("Missing Returns (Late)", "Mga Late na Balik-Binhi"),
-						String.valueOf(missingRetCount),
-						state.t("Past return deadline", "Lampas na sa due date"), "#dc3545"),
-				state.createStatCard(state.t("Inventory Info", "Lagay ng Imbentaryo"),
-						String.format("%.1f kg", totalStockKg),
-						totalVarieties + state.t(" varieties across ", " varieties sa ") + state.productData.size() + state.t(" lots", " lots"), state.PRIMARY_GREEN));
+		VBox cardStk = new VBox(4, new Label("Total Seed Stock"), state.lblStocks); // stock metric card
+		cardStk.setStyle(state.cardStyle()); // card style
+		state.lblStocks.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: " + AppState.PRIMARY_GREEN + ";"); // value style
 
-		// Middle Row: Tasks / Alerts Card (Left) + Stock per Crop Card (Right) matching Slide 3
-		HBox midRow = new HBox(16);
-		VBox.setVgrow(midRow, Priority.ALWAYS);
+		VBox cardLot = new VBox(4, new Label("Storage Lots"), state.lblLots); // lots metric card
+		cardLot.setStyle(state.cardStyle()); // card style
+		state.lblLots.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_DARK + ";"); // value style
 
-		// Left Card: Pending Requests, Pending Returns & Overdue Missing Returns
-		VBox tasksCard = new VBox(12);
-		tasksCard.setStyle(state.cardStyle());
-		HBox.setHgrow(tasksCard, Priority.ALWAYS);
-		tasksCard.setPrefWidth(620);
-
-		Label lblTasksTitle = new Label(state.t("Action Items & Missing Returns", "Mga Kailangang Aksyon at Late na Returns"));
-		lblTasksTitle.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
-
-		VBox taskList = new VBox(10);
-		for (SeedRequest r : state.requestData) {
-			if (r.isOverdue()) {
-				taskList.getChildren().add(state.createAlertRow(
-						"OVERDUE \u2022 " + r.getTransactionCode(),
-						r.getFarmer() + " (" + r.getSeedLabel() + " - " + r.getAmount() + " kg) \u2014 Due: " + r.getDueDate(),
-						"#fde8e8", "#9b1c1c"));
-			}
+		HBox summaryRow = new HBox(16, cardVar, cardStk, cardLot); // metric row
+		for (Node n : summaryRow.getChildren()) { // equal card widths
+			HBox.setHgrow(n, Priority.ALWAYS); // expand evenly
 		}
-		for (SeedRequest r : state.requestData) {
-			if ("Pending".equalsIgnoreCase(r.getStatus())) {
-				taskList.getChildren().add(state.createAlertRow(
-						"REQUEST \u2022 " + r.getTransactionCode(),
-						r.getFarmer() + " requested " + r.getAmount() + " kg of " + r.getSeedLabel(),
-						"#fef3c7", "#92400e"));
-			}
-		}
-		for (SeedReturn ret : state.returnData) {
-			if ("Pending".equalsIgnoreCase(ret.getStatus())) {
-				taskList.getChildren().add(state.createAlertRow(
-						"RETURN \u2022 " + ret.getReturnCode(),
-						ret.getFarmer() + " returned " + ret.getAmount() + " kg of " + ret.getSeedLabel(),
-						"#e0f2fe", "#075985"));
-			}
-		}
-		if (taskList.getChildren().isEmpty()) {
-			Label emptyLbl = new Label(state.t("All seed requests, returns, and deadlines are up to date.", "Goods lahat! Walang pending o late na returns ngayon."));
-			emptyLbl.setStyle("-fx-text-fill: " + state.textMuted() + ";");
-			taskList.getChildren().add(emptyLbl);
-		}
-		tasksCard.getChildren().addAll(lblTasksTitle, taskList);
 
-		// Right Card: Stock per Crop / Variety
-		VBox stockCard = new VBox(12);
-		stockCard.setStyle(state.cardStyle());
-		stockCard.setPrefWidth(340);
+		TextField searchField = new TextField(); // inventory search input
+		searchField.setPromptText("Search seed name, variety, or location..."); // placeholder hint
+		searchField.setStyle(state.inputStyle()); // input css
+		searchField.setPrefWidth(300); // search box width
 
-		Label lblStockTitle = new Label(state.t("Stock per Crop", "Stock Bawat Pananim"));
-		lblStockTitle.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
+		Button btnAdd = new Button("+  Add Seed Lot"); // button to add new lot (Save & Quit removed)
+		btnAdd.setStyle(state.primaryButtonStyle()); // primary button css
+		btnAdd.setOnAction(e -> createNewProduct()); // open add product modal
 
-		VBox stockList = new VBox(10);
-		for (Product p : state.productData) {
-			HBox row = new HBox(10);
-			row.setAlignment(Pos.CENTER_LEFT);
-			row.setPadding(new Insets(8, 12, 8, 12));
-			row.setStyle("-fx-background-color: " + state.bgPage() + "; -fx-background-radius: 10;");
-			Label lblCrop = new Label(p.getName() + " (" + p.getVariety() + ")");
-			lblCrop.setStyle("-fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
-			Region sp = new Region();
-			HBox.setHgrow(sp, Priority.ALWAYS);
-			Label lblQty = new Label(p.getQuantityLabel());
-			lblQty.setStyle("-fx-font-weight: bold; -fx-text-fill: " + state.PRIMARY_GREEN + ";");
-			row.getChildren().addAll(lblCrop, sp, lblQty);
-			stockList.getChildren().add(row);
-		}
-		stockCard.getChildren().addAll(lblStockTitle, stockList);
+		Region spacer = new Region(); // push add button right
+		HBox.setHgrow(spacer, Priority.ALWAYS); // expand spacer
+		HBox toolbar = new HBox(12, searchField, spacer, btnAdd); // toolbar row
+		toolbar.setAlignment(Pos.CENTER_LEFT); // vertical center
 
-		midRow.getChildren().addAll(tasksCard, stockCard);
-
-		// Bottom Wide Card: Unverified Farmer Accounts & Quick Summary
-		VBox bottomCard = new VBox(10);
-		bottomCard.setStyle(state.cardStyle());
-		long unverifiedCount = state.users.stream().filter(u -> "Farmer".equalsIgnoreCase(u.getRole()) && !u.isVerified()).count();
-		double totalDonations = state.donationData.stream().mapToDouble(Donation::getAmount).sum();
-
-		HBox bottomRow = new HBox(20);
-		bottomRow.setAlignment(Pos.CENTER_LEFT);
-		Label lblBottom = new Label(state.t(
-				"Seed Bank Summary: " + unverifiedCount + " farmer account(s) awaiting verification  \u2022  Total Community Donations: \u20b1" + String.format("%,.2f", totalDonations),
-				"Buod ng Seed Bank: " + unverifiedCount + " account ng magsasaka ang naghihintay ng beripikasyon  \u2022  Kabuuang Donasyon: \u20b1" + String.format("%,.2f", totalDonations)));
-		lblBottom.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
-
-		Region spBottom = new Region();
-		HBox.setHgrow(spBottom, Priority.ALWAYS);
-
-		Button btnVerifyShortcut = new Button(state.t("Manage Users  \u2192", "I-manage ang Users  \u2192"));
-		btnVerifyShortcut.setStyle(state.primaryButtonStyle());
-		btnVerifyShortcut.setOnAction(e -> {
-			state.currentRoute = "Farmers";
-			showAdminShell();
-		});
-		bottomRow.getChildren().addAll(lblBottom, spBottom, btnVerifyShortcut);
-		bottomCard.getChildren().add(bottomRow);
-
-		container.getChildren().addAll(topCards, midRow, bottomCard);
-
-		ScrollPane scroll = new ScrollPane(container);
-		scroll.setFitToWidth(true);
-		return scroll;
-	}
-
-
-
-
-
-	// =========================================================================
-	// ADMIN INVENTORY VIEW (SLIDE 4 & SLIDE 5 - NO "SAVE AND QUIT" BUTTON)
-	// =========================================================================
-	private VBox buildAdminInventoryView() {
-		VBox container = new VBox(18);
-
-		int varieties = (int) state.productData.stream().map(Product::getVariety).distinct().count();
-		double totalStocks = state.productData.stream().mapToDouble(Product::getAmount).sum();
-		int storageLots = state.productData.size();
-
-		HBox topCards = new HBox(16);
-		topCards.getChildren().addAll(
-				state.createStatCard(state.t("Plant Variety", "Variety ng Pananim"), String.valueOf(varieties), state.t("Distinct seed varieties", "Iba't ibang variety ng binhi"), state.PRIMARY_GREEN),
-				state.createStatCard(state.t("Seed Stock", "Stock ng Binhi"), String.format("%.1f kg", totalStocks), state.t("Total available weight", "Kabuuang timbang na available"), state.PRIMARY_GREEN),
-				state.createStatCard(state.t("Storage Lots", "Mga Seed Lot"), String.valueOf(storageLots), state.t("Active inventory slots", "Mga active na seed lot"), state.PRIMARY_GREEN));
-
-		VBox tableCard = new VBox(14);
-		tableCard.setStyle(state.cardStyle());
-		VBox.setVgrow(tableCard, Priority.ALWAYS);
-
-		HBox bar = new HBox(12);
-		bar.setAlignment(Pos.CENTER_LEFT);
-
-		TextField txtSearch = new TextField();
-		txtSearch.setPromptText(state.t("\ud83d\udd0d  Search inventory lots...", "\ud83d\udd0d  Maghanap ng seed lot..."));
-		txtSearch.setPrefWidth(360);
-		txtSearch.setStyle(state.inputStyle());
-
-		Region spacer = new Region();
-		HBox.setHgrow(spacer, Priority.ALWAYS);
-
-		Button btnAddSlot = new Button(state.t("+  Add Inventory Slot", "+  Magdagdag ng Seed Lot"));
-		btnAddSlot.setStyle(state.primaryButtonStyle());
-		btnAddSlot.setOnAction(e -> openAddInventorySlotModal());
-
-		// Inventory is saved automatically when stock changes.
-		bar.getChildren().addAll(txtSearch, spacer, btnAddSlot);
-
-		FilteredList<Product> filtered = new FilteredList<>(state.productData, p -> true);
-		txtSearch.textProperty().addListener((obs, oldV, newV) -> {
-			String q = newV == null ? "" : newV.trim().toLowerCase();
-			filtered.setPredicate(p -> q.isEmpty()
-					|| p.getName().toLowerCase().contains(q)
-					|| p.getVariety().toLowerCase().contains(q)
-					|| p.getLocation().toLowerCase().contains(q)
-					|| p.getLotCode().toLowerCase().contains(q));
+		FilteredList<Product> filteredProducts = new FilteredList<>(state.productData, p -> true); // live filter wrapper
+		searchField.textProperty().addListener((obs, oldVal, newVal) -> { // filter rows as admin types
+			String q = newVal == null ? "" : newVal.trim().toLowerCase(); // normalize query
+			filteredProducts.setPredicate(p -> q.isEmpty() // continue statement
+					|| p.getName().toLowerCase().contains(q) // continue statement
+					|| p.getVariety().toLowerCase().contains(q) // continue statement
+					|| p.getLocation().toLowerCase().contains(q) // continue statement
+					|| String.valueOf(p.getLotID()).contains(q)); // match name, variety, location, or lot id
 		});
 
-		TableView<Product> table = new TableView<>(filtered);
-		table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-		VBox.setVgrow(table, Priority.ALWAYS);
+		TableView<Product> table = new TableView<>(); // main inventory table
+		state.inventoryTable = table; // save reference for cross-tab refresh
+		table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); // stretch columns
+		table.setPrefHeight(430); // table height
+		table.setItems(filteredProducts); // bind filtered list
 
-		TableColumn<Product, String> colLot = new TableColumn<>(state.t("Lot ID", "Lot ID"));
-		colLot.setCellValueFactory(new PropertyValueFactory<>("lotCode"));
+		TableColumn<Product, Integer> colLotID = new TableColumn<>("Lot ID"); // lot id column
+		colLotID.setCellValueFactory(new PropertyValueFactory<>("lotID")); // bind lotID
 
-		TableColumn<Product, String> colVariety = new TableColumn<>(state.t("Variety", "Variety"));
-		colVariety.setCellValueFactory(new PropertyValueFactory<>("variety"));
+		TableColumn<Product, String> colName = new TableColumn<>("Product Name"); // crop name column
+		colName.setCellValueFactory(new PropertyValueFactory<>("name")); // bind name
 
-		TableColumn<Product, String> colLocation = new TableColumn<>(state.t("Location", "Lokasyon"));
-		colLocation.setCellValueFactory(new PropertyValueFactory<>("location"));
+		TableColumn<Product, String> colVariety = new TableColumn<>("Variety"); // variety column
+		colVariety.setCellValueFactory(new PropertyValueFactory<>("variety")); // bind variety
 
-		TableColumn<Product, String> colQty = new TableColumn<>(state.t("Quantity", "Dami"));
-		colQty.setCellValueFactory(new PropertyValueFactory<>("quantityLabel"));
+		TableColumn<Product, String> colLocation = new TableColumn<>("Location"); // storage location column
+		colLocation.setCellValueFactory(new PropertyValueFactory<>("location")); // bind location
 
-		TableColumn<Product, String> colStatus = new TableColumn<>(state.t("Status", "Status"));
-		colStatus.setCellValueFactory(new PropertyValueFactory<>("stockStatus"));
-		colStatus.setCellFactory(col -> new TableCell<Product, String>() {
-			@Override
-			protected void updateItem(String item, boolean empty) {
-				super.updateItem(item, empty);
-				if (empty || item == null) {
-					setGraphic(null);
-				} else {
-					Label badge = new Label(item);
-					boolean low = !"Available".equalsIgnoreCase(item);
-					badge.setStyle("-fx-background-color: " + (low ? "#fef3c7" : "#dcfce7") + ";"
-							+ "-fx-text-fill: " + (low ? "#92400e" : "#166534") + ";"
-							+ "-fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 4 10 4 10; -fx-background-radius: 8;");
-					setGraphic(badge);
-				}
-			}
-		});
+		TableColumn<Product, Double> colAmount = new TableColumn<>("Stock (kg)"); // available stock column
+		colAmount.setCellValueFactory(new PropertyValueFactory<>("amount")); // bind amount
 
-		TableColumn<Product, Void> colAction = new TableColumn<>("");
-		colAction.setCellFactory(col -> new TableCell<Product, Void>() {
-			private final Button btnView = new Button(state.t("View", "Tingnan"));
+		TableColumn<Product, Double> colPrice = new TableColumn<>("Value / kg (\u20b1)"); // unit value column
+		colPrice.setCellValueFactory(new PropertyValueFactory<>("price")); // bind price
+
+		TableColumn<Product, Void> colAction = new TableColumn<>("Actions"); // row action column
+		colAction.setCellFactory(param -> new TableCell<>() { // continue statement
+			private final Button btnView = new Button("View Details"); // view/edit/delete button
 			{
-				btnView.setStyle("-fx-background-color: " + state.PRIMARY_GREEN + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 5 16 5 16; -fx-cursor: hand;");
-				btnView.setOnAction(e -> {
-					Product p = getTableView().getItems().get(getIndex());
-					openProductDetailDialog(p);
+				btnView.setStyle(state.outlineButtonStyle()); // outline style
+				btnView.setOnAction(e -> { // attach click listener
+					Product product = getTableView().getItems().get(getIndex()); // get selected row item
+					openProductDetailDialog(product); // open product details dialog
 				});
 			}
-
 			@Override
-			protected void updateItem(Void item, boolean empty) {
-				super.updateItem(item, empty);
-				setGraphic(empty ? null : btnView);
+			protected void updateItem(Void item, boolean empty) { // show button on non-empty rows
+				super.updateItem(item, empty); // call superclass
+				setGraphic(empty ? null : btnView); // attach or clear button
 			}
 		});
 
-		table.getColumns().addAll(colLot, colVariety, colLocation, colQty, colStatus, colAction);
-		tableCard.getChildren().addAll(bar, table);
+		table.getColumns().addAll(colLotID, colName, colVariety, colLocation, colAmount, colPrice, colAction); // add all columns
 
-		container.getChildren().addAll(topCards, tableCard);
-		return container;
+		VBox tableCard = new VBox(14, toolbar, table); // wrap toolbar and table in white card
+		tableCard.setStyle(state.cardStyle()); // card style
+
+		VBox root = new VBox(20, summaryRow, tableCard); // main inventory layout
+		root.setPadding(new Insets(24, 28, 28, 28)); // outer margins
+		return root; // return inventory pane
 	}
 
 	// =========================================================================
-	// ADMIN USER MANAGEMENT VIEW (SLIDE 6 & SLIDE 7 + HIGH PRIORITY SPECS)
+	// 3. USER MANAGEMENT TAB (Option 2 Account Creation, Assign Admin, Suspend with Reason, View Details)
 	// =========================================================================
-	private VBox buildAdminUserManagementView() {
-		VBox container = new VBox(18);
+	private VBox createUserManagementPane() { // define createusermanagementpane helper
+		TextField searchField = new TextField(); // user search input
+		searchField.setPromptText("Search by user ID, username, name, or farm..."); // placeholder hint
+		searchField.setStyle(state.inputStyle()); // input css
+		searchField.setPrefWidth(320); // search box width
 
-		long registeredFarms = state.users.stream().filter(u -> "Farmer".equalsIgnoreCase(u.getRole())).count();
-		long verifiedFarms = state.users.stream().filter(u -> "Farmer".equalsIgnoreCase(u.getRole()) && u.isVerified()).count();
-		long pendingReview = state.users.stream().filter(u -> "Farmer".equalsIgnoreCase(u.getRole()) && "Pending".equalsIgnoreCase(u.getStatus())).count();
+		Button btnCreateUser = new Button("+  Create Account"); // option 2 account creation button
+		btnCreateUser.setStyle(state.primaryButtonStyle()); // primary button css
+		btnCreateUser.setOnAction(e -> openCreateAccountDialog()); // open admin account creation modal
 
-		HBox topCards = new HBox(16);
-		topCards.getChildren().addAll(
-				state.createStatCard(state.t("Registered Farms", "Mga Rehistradong Sakahan"), String.valueOf(registeredFarms), state.t("Total farmer accounts", "Bilang ng mga farmer"), state.PRIMARY_GREEN),
-				state.createStatCard(state.t("Verified Farms", "Mga Verified na Sakahan"), String.valueOf(verifiedFarms), state.t("Full seed request access", "May full access sa paghiram"), "#166534"),
-				state.createStatCard(state.t("Pending Review", "Nire-review pa"), String.valueOf(pendingReview), state.t("Awaiting admin verification", "Nag-aantay ma-verify ng admin"), "#d97706"));
+		Region spacer = new Region(); // push create button right
+		HBox.setHgrow(spacer, Priority.ALWAYS); // expand spacer
+		HBox toolbar = new HBox(12, searchField, spacer, btnCreateUser); // top toolbar
+		toolbar.setAlignment(Pos.CENTER_LEFT); // center vertically
 
-		VBox tableCard = new VBox(14);
-		tableCard.setStyle(state.cardStyle());
-		VBox.setVgrow(tableCard, Priority.ALWAYS);
-
-		HBox bar = new HBox(12);
-		bar.setAlignment(Pos.CENTER_LEFT);
-
-		TextField txtSearch = new TextField();
-		txtSearch.setPromptText(state.t("\ud83d\udd0d  Search users, farms, or locations...", "\ud83d\udd0d  Maghanap ng user, sakahan, o lugar..."));
-		txtSearch.setPrefWidth(360);
-		txtSearch.setStyle(state.inputStyle());
-
-		Region spacer = new Region();
-		HBox.setHgrow(spacer, Priority.ALWAYS);
-
-		// Admins can create Farmer or Admin accounts from this tab.
-		Button btnAddAccount = new Button(state.t("+  Add Farm / User Account", "+  Magdagdag ng Account"));
-		btnAddAccount.setStyle(state.primaryButtonStyle());
-		btnAddAccount.setOnAction(e -> openAdminCreateAccountModal());
-
-		bar.getChildren().addAll(txtSearch, spacer, btnAddAccount);
-
-		FilteredList<User> filteredUsers = new FilteredList<>(state.users, u -> true);
-		txtSearch.textProperty().addListener((obs, oldV, newV) -> {
-			String q = newV == null ? "" : newV.trim().toLowerCase();
-			filteredUsers.setPredicate(u -> q.isEmpty()
-					|| u.getUsername().toLowerCase().contains(q)
-					|| u.getUserId().toLowerCase().contains(q)
-					|| u.getFarmName().toLowerCase().contains(q)
-					|| u.getFarmAddress().toLowerCase().contains(q)
-					|| u.getRole().toLowerCase().contains(q));
+		FilteredList<User> filteredUsers = new FilteredList<>(state.users, u -> true); // live user filter
+		searchField.textProperty().addListener((obs, oldVal, newVal) -> { // filter users as admin types
+			String q = newVal == null ? "" : newVal.trim().toLowerCase(); // normalize query
+			filteredUsers.setPredicate(u -> q.isEmpty() // continue statement
+					|| u.getUserId().toLowerCase().contains(q) // continue statement
+					|| u.getUsername().toLowerCase().contains(q) // continue statement
+					|| u.getFullName().toLowerCase().contains(q) // continue statement
+					|| u.getFarmName().toLowerCase().contains(q) // continue statement
+					|| u.getFarmAddress().toLowerCase().contains(q)); // match id, username, name, or farm
 		});
 
-		TableView<User> table = new TableView<>(filteredUsers);
-		table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-		VBox.setVgrow(table, Priority.ALWAYS);
+		TableView<User> userTable = new TableView<>(); // user accounts table
+		userTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); // stretch columns
+		userTable.setPrefHeight(470); // table height
+		userTable.setItems(filteredUsers); // bind filtered list
 
-		TableColumn<User, String> colId = new TableColumn<>(state.t("User ID", "User ID"));
-		colId.setCellValueFactory(new PropertyValueFactory<>("userId"));
+		TableColumn<User, String> colId = new TableColumn<>("User ID"); // user id column
+		colId.setCellValueFactory(new PropertyValueFactory<>("userId")); // bind userId
 
-		TableColumn<User, String> colFarm = new TableColumn<>(state.t("User / Farm", "User / Sakahan"));
-		colFarm.setCellValueFactory(cell -> new SimpleStringProperty(
-				cell.getValue().getUsername() + " (" + cell.getValue().getFarmName() + ")"));
+		TableColumn<User, String> colUsername = new TableColumn<>("Username"); // username column
+		colUsername.setCellValueFactory(new PropertyValueFactory<>("username")); // bind username
 
-		TableColumn<User, String> colLocation = new TableColumn<>(state.t("Location", "Lokasyon"));
-		colLocation.setCellValueFactory(new PropertyValueFactory<>("farmAddress"));
+		TableColumn<User, String> colName = new TableColumn<>("Full Name"); // full name column
+		colName.setCellValueFactory(new PropertyValueFactory<>("fullName")); // bind fullName
 
-		TableColumn<User, String> colRole = new TableColumn<>(state.t("Role", "Role"));
-		colRole.setCellValueFactory(new PropertyValueFactory<>("role"));
-
-		TableColumn<User, String> colStatus = new TableColumn<>(state.t("Status", "Status"));
-		colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
-		colStatus.setCellFactory(col -> new TableCell<User, String>() {
-			@Override
-			protected void updateItem(String item, boolean empty) {
-				super.updateItem(item, empty);
-				if (empty || item == null) {
-					setGraphic(null);
-				} else {
-					Label badge = new Label(item);
-					String bg = "#fef3c7";
-					String fg = "#92400e";
-					if ("Verified".equalsIgnoreCase(item)) {
-						bg = "#dcfce7";
-						fg = "#166534";
-					} else if ("Suspended".equalsIgnoreCase(item)) {
-						bg = "#fde8e8";
-						fg = "#9b1c1c";
-					}
-					badge.setStyle("-fx-background-color: " + bg + "; -fx-text-fill: " + fg + ";"
-							+ "-fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 4 10 4 10; -fx-background-radius: 8;");
-					setGraphic(badge);
-				}
-			}
+		TableColumn<User, String> colFarm = new TableColumn<>("Farm / Address"); // farm summary column
+		colFarm.setCellValueFactory(cell -> { // bind column value
+			User u = cell.getValue(); // read row user
+			String label = u.getFarmName().isBlank() ? u.getFarmAddress() : u.getFarmName() + " (" + u.getFarmAddress() + ")"; // combine farm name and address
+			return new SimpleStringProperty(label.isBlank() ? "-" : label); // fallback dash if empty
 		});
 
-		TableColumn<User, Void> colAction = new TableColumn<>("");
-		colAction.setCellFactory(col -> new TableCell<User, Void>() {
-			private final Button btnView = new Button(state.t("View", "Tingnan"));
+		TableColumn<User, String> colRole = new TableColumn<>("Role"); // role column
+		colRole.setCellValueFactory(new PropertyValueFactory<>("role")); // bind role
+
+		TableColumn<User, String> colStatus = new TableColumn<>("Status"); // status badge column
+		colStatus.setCellValueFactory(new PropertyValueFactory<>("statusLabel")); // bind statusLabel
+		colStatus.setCellFactory(state.createStatusBadgeCell()); // render colored pill badge
+
+		TableColumn<User, Void> colActions = new TableColumn<>("Actions"); // details button column
+		colActions.setCellFactory(param -> new TableCell<>() { // continue statement
+			private final Button btnDetails = new Button("View Details"); // open user details modal
 			{
-				btnView.setStyle("-fx-background-color: " + state.PRIMARY_GREEN + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 5 16 5 16; -fx-cursor: hand;");
-				btnView.setOnAction(e -> {
-					User u = getTableView().getItems().get(getIndex());
-					openUserDetailManagementModal(u);
+				btnDetails.setStyle(state.outlineButtonStyle()); // outline style
+				btnDetails.setOnAction(e -> { // attach click listener
+					User selected = getTableView().getItems().get(getIndex()); // get clicked user
+					openUserDetailDialog(selected, userTable); // open detail & management dialog
 				});
 			}
-
 			@Override
-			protected void updateItem(Void item, boolean empty) {
-				super.updateItem(item, empty);
-				setGraphic(empty ? null : btnView);
+			protected void updateItem(Void item, boolean empty) { // render button on populated rows
+				super.updateItem(item, empty); // call superclass
+				setGraphic(empty ? null : btnDetails); // attach or clear button
 			}
 		});
 
-		table.getColumns().addAll(colId, colFarm, colLocation, colRole, colStatus, colAction);
-		tableCard.getChildren().addAll(bar, table);
+		userTable.getColumns().addAll(colId, colUsername, colName, colFarm, colRole, colStatus, colActions); // add all columns
 
-		container.getChildren().addAll(topCards, tableCard);
-		return container;
+		VBox card = new VBox(14, toolbar, userTable); // white card wrapper
+		card.setStyle(state.cardStyle()); // card style
+
+		VBox root = new VBox(20, card); // main user management container
+		root.setPadding(new Insets(24, 28, 28, 28)); // outer margins
+		return root; // return user management pane
 	}
 
-	// User Management -> View Details Modal (Farm Info, Farmer Info, Pending Returns & Requests, Verify, Assign Admin, Suspend User)
-	private void openUserDetailManagementModal(User targetUser) {
-		Stage modal = new Stage();
-		modal.initOwner(state.mainStage);
-		modal.initModality(Modality.APPLICATION_MODAL);
-		modal.initStyle(StageStyle.UTILITY);
-		modal.setTitle(state.t("User & Farm Details", "Detalye ng User at Sakahan"));
+	// option 2: admin creates a new farmer or admin account directly (no verification gate needed)
+	private void openCreateAccountDialog() { // define opencreateaccountdialog helper
+		Stage dialog = new Stage(); // create modal stage
+		dialog.initOwner(mainStage); // set owner stage
+		dialog.initModality(Modality.APPLICATION_MODAL); // block parent clicks
+		dialog.initStyle(StageStyle.UTILITY); // clean dialog frame
+		dialog.setTitle("Create User Account"); // window title
 
-		VBox card = new VBox(16);
-		card.setPadding(new Insets(24));
-		card.setStyle("-fx-background-color: " + state.bgCard() + ";");
+		Label heading = new Label("Create New Account (Pre-Verified)"); // modal heading
+		heading.setStyle("-fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: " + AppState.FOREST_DARK + ";"); // heading style
 
-		Label lblHeader = new Label(state.t("Account Details \u2014 ", "Detalye ng Account \u2014 ") + targetUser.getUserId());
-		lblHeader.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
+		GridPane grid = new GridPane(); // two-column form grid
+		grid.setHgap(14); // horizontal spacing
+		grid.setVgap(10); // vertical spacing
+		ColumnConstraints c1 = new ColumnConstraints(145); // label column width
+		ColumnConstraints c2 = new ColumnConstraints(280); // input column width
+		grid.getColumnConstraints().addAll(c1, c2); // apply column widths
 
-		// 2-Column Info Grid: Farmer Info & Farm Info
-		GridPane grid = new GridPane();
-		grid.setHgap(18);
-		grid.setVgap(10);
-		ColumnConstraints cc1 = new ColumnConstraints();
-		cc1.setPercentWidth(50);
-		ColumnConstraints cc2 = new ColumnConstraints();
-		cc2.setPercentWidth(50);
-		grid.getColumnConstraints().addAll(cc1, cc2);
+		TextField tfUsername = new TextField(); // username input
+		tfUsername.setStyle(state.inputStyle()); // input css
+		PasswordField pfPassword = new PasswordField(); // password input
+		pfPassword.setStyle(state.inputStyle()); // input css
+		TextField tfFullName = new TextField(); // full name input
+		tfFullName.setStyle(state.inputStyle()); // input css
+		TextField tfPhone = new TextField(); // phone number input
+		tfPhone.setStyle(state.inputStyle()); // input css
+		TextField tfEmail = new TextField(); // email address input
+		tfEmail.setStyle(state.inputStyle()); // input css
+		TextField tfFarmName = new TextField(); // farm name input
+		tfFarmName.setStyle(state.inputStyle()); // input css
+		TextField tfFarmAddress = new TextField(); // farm address input
+		tfFarmAddress.setStyle(state.inputStyle()); // input css
+		TextField tfRsbsa = new TextField(); // rsbsa number input
+		tfRsbsa.setPromptText("e.g. RSBSA-04-34-1200"); // placeholder
+		tfRsbsa.setStyle(state.inputStyle()); // input css
 
-		VBox farmerInfoBox = new VBox(6);
-		farmerInfoBox.setStyle("-fx-background-color: " + state.bgPage() + "; -fx-padding: 14; -fx-background-radius: 12;");
-		Label lblFarmerSec = new Label(state.t("Farmer Information", "Impormasyon ng Farmer"));
-		lblFarmerSec.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: " + state.PRIMARY_GREEN + ";");
-		farmerInfoBox.getChildren().addAll(
-				lblFarmerSec,
-				state.makeDetailLine(state.t("Username:", "Username:"), targetUser.getUsername()),
-				state.makeDetailLine(state.t("Role:", "Role:"), targetUser.getRole()),
-				state.makeDetailLine("Status:", targetUser.getStatus()
-						+ (targetUser.isSuspended() && !targetUser.getSuspensionReason().isEmpty()
-							? " — " + targetUser.getSuspensionReason() : "")),
-				state.makeDetailLine(state.t("Phone Number:", "Cellphone Number:"), targetUser.getPhoneNumber().isEmpty() ? "N/A" : targetUser.getPhoneNumber()),
-				state.makeDetailLine(state.t("Email Address:", "Email Address:"), targetUser.getEmail().isEmpty() ? "N/A" : targetUser.getEmail()));
+		ComboBox<String> cbRole = new ComboBox<>(); // role selector (Admin or Farmer)
+		cbRole.getItems().addAll("Farmer", "Admin"); // populate roles
+		cbRole.setValue("Farmer"); // default to Farmer
+		cbRole.setStyle(state.inputStyle()); // input css
+		cbRole.setMaxWidth(Double.MAX_VALUE); // match field width
 
-		VBox farmInfoBox = new VBox(6);
-		farmInfoBox.setStyle("-fx-background-color: " + state.bgPage() + "; -fx-padding: 14; -fx-background-radius: 12;");
-		Label lblFarmSec = new Label(state.t("Farm Information", "Impormasyon ng Sakahan"));
-		lblFarmSec.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: " + state.PRIMARY_GREEN + ";");
-		farmInfoBox.getChildren().addAll(
-				lblFarmSec,
-				state.makeDetailLine(state.t("Farm Name:", "Pangalan ng Sakahan:"), targetUser.getFarmName()),
-				state.makeDetailLine(state.t("Farm Address:", "Address ng Sakahan:"), targetUser.getFarmAddress().isEmpty() ? "N/A" : targetUser.getFarmAddress()),
-				state.makeDetailLine(state.t("RSBSA Number:", "RSBSA Number:"), targetUser.getRsbsaNumber()),
-				state.makeDetailLine(state.t("Farm Area:", "Laki ng Sakahan:"), targetUser.getFarmArea()));
+		grid.addRow(0, new Label("Username *:"), tfUsername); // row 0
+		grid.addRow(1, new Label("Password *:"), pfPassword); // row 1
+		grid.addRow(2, new Label("Full Name *:"), tfFullName); // row 2
+		grid.addRow(3, new Label("Phone Number *:"), tfPhone); // row 3
+		grid.addRow(4, new Label("Email Address *:"), tfEmail); // row 4
+		grid.addRow(5, new Label("Farm Name:"), tfFarmName); // row 5
+		grid.addRow(6, new Label("Farm Address *:"), tfFarmAddress); // row 6
+		grid.addRow(7, new Label("RSBSA Number:"), tfRsbsa); // row 7
+		grid.addRow(8, new Label("Account Role *:"), cbRole); // row 8
 
-		grid.add(farmerInfoBox, 0, 0);
-		grid.add(farmInfoBox, 1, 0);
+		Label lblWarn = new Label(); // validation error label
+		lblWarn.setStyle("-fx-text-fill: #b42318; -fx-font-size: 12px;"); // red text
+		lblWarn.setWrapText(true); // wrap long errors
 
-		// Pending Seed Requests & Pending Seed Returns for this user
-		VBox activityBox = new VBox(8);
-		activityBox.setStyle("-fx-background-color: " + state.bgPage() + "; -fx-padding: 14; -fx-background-radius: 12;");
-		Label lblActTitle = new Label(state.t("Pending Seed Requests & Pending Seed Returns", "Mga Pending na Seed Request at Seed Return"));
-		lblActTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: " + state.textPrimary() + ";");
+		Button btnCancel = new Button("Cancel"); // cancel button
+		btnCancel.setStyle(state.outlineButtonStyle()); // outline style
+		btnCancel.setOnAction(e -> dialog.close()); // close modal
 
-		List<SeedRequest> userPendingReqs = state.requestData.stream()
-				.filter(r -> r.getFarmer().equalsIgnoreCase(targetUser.getUsername()) && "Pending".equalsIgnoreCase(r.getStatus()))
-				.collect(Collectors.toList());
-		List<SeedReturn> userPendingRets = state.returnData.stream()
-				.filter(r -> r.getFarmer().equalsIgnoreCase(targetUser.getUsername()) && "Pending".equalsIgnoreCase(r.getStatus()))
-				.collect(Collectors.toList());
+		Button btnSave = new Button("Create Account"); // submit account button
+		btnSave.setStyle(state.primaryButtonStyle()); // primary style
+		btnSave.setOnAction(e -> { // attach click listener
+			String username = tfUsername.getText().trim(); // read username
+			String password = pfPassword.getText().trim(); // read password
+			String fullName = tfFullName.getText().trim(); // read full name
+			String phone = tfPhone.getText().trim(); // read phone
+			String email = tfEmail.getText().trim(); // read email
+			String farmName = tfFarmName.getText().trim(); // read farm name
+			String farmAddr = tfFarmAddress.getText().trim(); // read farm address
+			String rsbsa = tfRsbsa.getText().trim(); // read rsbsa
+			String role = cbRole.getValue(); // read selected role
 
-		VBox actItems = new VBox(4);
-		if (userPendingReqs.isEmpty() && userPendingRets.isEmpty()) {
-			Label none = new Label(state.t("No pending seed requests or returns for this user.", "Walang pending na request o return ang user na ito."));
-			none.setStyle("-fx-text-fill: " + state.textMuted() + "; -fx-font-size: 12px;");
-			actItems.getChildren().add(none);
-		} else {
-			for (SeedRequest r : userPendingReqs) {
-				Label l = new Label("\u2022 [Request " + r.getTransactionCode() + "] " + r.getSeedLabel() + " (" + r.getAmount() + " kg) \u2014 " + r.getPurpose());
-				l.setStyle("-fx-text-fill: " + state.textPrimary() + "; -fx-font-size: 12px;");
-				actItems.getChildren().add(l);
+			if (username.isEmpty() || password.isEmpty() || fullName.isEmpty() // continue statement
+					|| phone.isEmpty() || email.isEmpty() || farmAddr.isEmpty()) { // validate required fields
+				lblWarn.setText("Error: Please complete all required fields (*)."); // show missing fields message
+				return; // stop creation
 			}
-			for (SeedReturn ret : userPendingRets) {
-				Label l = new Label("\u2022 [Return " + ret.getReturnCode() + "] " + ret.getSeedLabel() + " (" + ret.getAmount() + " kg)");
-				l.setStyle("-fx-text-fill: " + state.textPrimary() + "; -fx-font-size: 12px;");
-				actItems.getChildren().add(l);
+			if (state.findUserByUsername(username) != null) { // prevent duplicate usernames
+				lblWarn.setText("Error: Username '" + username + "' is already taken."); // show duplicate error
+				return; // stop creation
+			}
+
+			User created = new User( // continue statement
+					state.generateNextUserId(), // next USR-XXX id
+					username, // username
+					password, // password
+					role, // Farmer or Admin
+					fullName, // full name
+					phone, // phone number
+					email, // email address
+					farmName.isEmpty() ? fullName + " Farm" : farmName, // default farm name if left blank
+					farmAddr, // farm address
+					rsbsa.isEmpty() ? "RSBSA-PENDING" : rsbsa, // rsbsa code
+					1.0, // default 1.0 ha
+					true, // option 2 requires no separate verification step
+					false, // active (not suspended)
+					""); // empty suspension reason
+
+			state.users.add(created); // add to observable user list
+			state.saveUsers(); // save immediately to users.txt
+			dialog.close(); // close modal
+		});
+
+		HBox footer = new HBox(10, btnCancel, btnSave); // bottom action buttons
+		footer.setAlignment(Pos.CENTER_RIGHT); // align right
+
+		VBox layout = new VBox(14, heading, grid, lblWarn, footer); // modal container
+		layout.setPadding(new Insets(22)); // outer padding
+		layout.setStyle("-fx-background-color: #ffffff;"); // white background
+
+		dialog.setScene(new Scene(layout, 485, 480)); // set modal scene size
+		dialog.showAndWait(); // display modal
+	}
+
+	// view full user details: farmer info, farm info, pending seed requests & returns, assign admin, suspend with reason
+	private void openUserDetailDialog(User user, TableView<User> userTable) { // define openuserdetaildialog helper
+		Stage dialog = new Stage(); // create modal stage
+		dialog.initOwner(mainStage); // set owner stage
+		dialog.initModality(Modality.APPLICATION_MODAL); // block background clicks
+		dialog.initStyle(StageStyle.UTILITY); // clean dialog border
+		dialog.setTitle("User Details - " + user.getUsername()); // window title
+
+		Label heading = new Label(user.getFullName() + " (" + user.getUserId() + ")"); // user heading
+		heading.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: " + AppState.FOREST_DARK + ";"); // heading css
+
+		// Farmer Information Section
+		Label lblFarmerSec = new Label("Farmer Information"); // section 1 title
+		lblFarmerSec.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: " + AppState.PRIMARY_GREEN + ";"); // green section label
+		Label lblFarmerInfo = new Label( // continue statement
+				"Username: " + user.getUsername() + "   |   Role: " + user.getRole() + "   |   Status: " + user.getStatusLabel() + "\n" // continue statement
+						+ "Phone: " + (user.getPhone().isBlank() ? "-" : user.getPhone()) // continue statement
+						+ "   |   Email: " + (user.getEmail().isBlank() ? "-" : user.getEmail())); // farmer details text
+		lblFarmerInfo.setStyle("-fx-font-size: 12px; -fx-text-fill: " + AppState.TEXT_DARK + ";"); // dark text
+
+		// Farm Information Section
+		Label lblFarmSec = new Label("Farm Information"); // section 2 title
+		lblFarmSec.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: " + AppState.PRIMARY_GREEN + ";"); // green section label
+		Label lblFarmInfo = new Label( // continue statement
+				"Farm Name: " + (user.getFarmName().isBlank() ? "-" : user.getFarmName()) // continue statement
+						+ "   |   RSBSA: " + (user.getRsbsaNumber().isBlank() ? "-" : user.getRsbsaNumber()) + "\n" // continue statement
+						+ "Farm Address: " + (user.getFarmAddress().isBlank() ? "-" : user.getFarmAddress()) // continue statement
+						+ "   |   Active Loan Value: \u20b1" + String.format("%,.2f", state.getFarmerActiveLoanValue(user.getUsername()))); // farm details text
+		lblFarmInfo.setStyle("-fx-font-size: 12px; -fx-text-fill: " + AppState.TEXT_DARK + ";"); // dark text
+
+		// Pending Seed Requests and Pending Seed Returns Section
+		Label lblPendingSec = new Label("Pending Seed Requests & Pending Seed Returns"); // section 3 title
+		lblPendingSec.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: " + AppState.PRIMARY_GREEN + ";"); // green section label
+
+		List<SeedRequest> pendingReqs = state.requestData.stream() // continue statement
+				.filter(r -> r.getFarmer().equalsIgnoreCase(user.getUsername()) && "Pending".equalsIgnoreCase(r.getStatus())) // continue statement
+				.collect(Collectors.toList()); // filter user's pending seed requests
+		List<SeedReturn> pendingRets = state.returnData.stream() // continue statement
+				.filter(r -> r.getFarmer().equalsIgnoreCase(user.getUsername()) && "Pending".equalsIgnoreCase(r.getStatus())) // continue statement
+				.collect(Collectors.toList()); // filter user's pending seed returns
+
+		StringBuilder sb = new StringBuilder(); // format pending items list
+		for (SeedRequest r : pendingReqs) { // append each pending request
+			sb.append("\u2022 [Request #").append(r.getRequestId()).append("] ").append(r.getSeedLabel()) // pass value
+					.append(" - ").append(r.getAmount()).append(" kg (").append(r.getPurpose()).append(")\n"); // request bullet
+		}
+		for (SeedReturn r : pendingRets) { // append each pending return
+			sb.append("\u2022 [Return #").append(r.getReturnId()).append("] ").append(r.getSeedLabel()) // pass value
+					.append(" - ").append(r.getAmount()).append(" kg (Awaiting Inspection)\n"); // return bullet
+		}
+		if (sb.length() == 0) { // message when user has no pending transactions
+			sb.append("No pending seed requests or seed returns for this account."); // empty state message
+		}
+
+		Label lblPendingList = new Label(sb.toString().trim()); // display formatted pending items
+		lblPendingList.setWrapText(true); // wrap lines
+		lblPendingList.setStyle("-fx-font-size: 12px; -fx-text-fill: " + AppState.TEXT_DARK + "; -fx-background-color: #f6f8f3; -fx-padding: 10; -fx-background-radius: 8;"); // soft box background
+
+		// Suspension Reason Input & Action Buttons
+		Label lblReason = new Label("Suspension Reason (shown to user if suspended):"); // suspension reason prompt
+		lblReason.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_DARK + ";"); // label style
+		TextField tfReason = new TextField(user.getSuspensionReason()); // prefill existing reason if any
+		tfReason.setPromptText("Enter reason before suspending (e.g., Unsettled overdue seed return)"); // placeholder hint
+		tfReason.setStyle(state.inputStyle()); // input css
+
+		Label lblFeedback = new Label(); // status feedback label
+		lblFeedback.setStyle("-fx-font-size: 12px; -fx-text-fill: #b42318;"); // red text
+
+		Button btnToggleAdmin = new Button("Admin".equalsIgnoreCase(user.getRole()) ? "Revoke Admin (Set Farmer)" : "Assign Admin"); // toggle role button
+		btnToggleAdmin.setStyle(state.outlineButtonStyle()); // outline style
+		btnToggleAdmin.setOnAction(e -> { // attach click listener
+			if (state.currentUser != null && state.currentUser.getUsername().equalsIgnoreCase(user.getUsername())) { // prevent removing own admin role
+				lblFeedback.setText("You cannot revoke your own Admin role while logged in."); // warning text
+				return; // abort
+			}
+			boolean makeAdmin = !"Admin".equalsIgnoreCase(user.getRole()); // flip role
+			user.setRole(makeAdmin ? "Admin" : "Farmer"); // update user role
+			state.saveUsers(); // save to users.txt
+			userTable.refresh(); // refresh table row
+			dialog.close(); // close modal
+		});
+
+		Button btnSuspend = new Button(user.isSuspended() ? "Unsuspend User" : "Suspend User"); // suspend/unsuspend button
+		btnSuspend.setStyle(user.isSuspended() ? state.primaryButtonStyle() : state.dangerButtonStyle()); // green to unsuspend, red to suspend
+		btnSuspend.setOnAction(e -> { // attach click listener
+			if (state.currentUser != null && state.currentUser.getUsername().equalsIgnoreCase(user.getUsername())) { // prevent self-suspension
+				lblFeedback.setText("You cannot suspend your own active Admin account."); // warning text
+				return; // abort
+			}
+			if (!user.isSuspended()) { // suspending an active user requires a reason
+				String reason = tfReason.getText().trim(); // read reason input
+				if (reason.isEmpty()) { // enforce entering a suspension reason
+					lblFeedback.setText("Please enter a suspension reason above before suspending this user."); // error text
+					return; // abort
+				}
+				user.setSuspended(true); // mark suspended
+				user.setSuspensionReason(reason); // store reason shown at login
+			} else { // unsuspending user
+				user.setSuspended(false); // clear suspended flag
+				user.setSuspensionReason(""); // clear suspension reason
+			}
+			state.saveUsers(); // persist to users.txt
+			userTable.refresh(); // refresh table row
+			dialog.close(); // close modal
+		});
+
+		Button btnClose = new Button("Close"); // close dialog button
+		btnClose.setStyle(state.outlineButtonStyle()); // outline style
+		btnClose.setOnAction(e -> dialog.close()); // close modal
+
+		Region spacer = new Region(); // push close button right
+		HBox.setHgrow(spacer, Priority.ALWAYS); // expand spacer
+		HBox actions = new HBox(10, btnToggleAdmin, btnSuspend, spacer, btnClose); // bottom button row
+		actions.setAlignment(Pos.CENTER_LEFT); // align vertically
+
+		VBox layout = new VBox(12, // continue statement
+				heading, new Separator(), // continue statement
+				lblFarmerSec, lblFarmerInfo, // pass value
+				lblFarmSec, lblFarmInfo, // pass value
+				lblPendingSec, lblPendingList, // pass value
+				lblReason, tfReason, lblFeedback, actions); // assemble modal content
+		layout.setPadding(new Insets(22)); // outer padding
+		layout.setStyle("-fx-background-color: #ffffff;"); // white background
+
+		dialog.setScene(new Scene(layout, 580, 520)); // set modal dimensions
+		dialog.showAndWait(); // display modal
+	}
+
+	// =========================================================================
+	// 4. TRANSACTIONS TAB (Approve/Reject Requests & Accept/Reject Seed Returns)
+	// =========================================================================
+	private VBox createAdminTransactionsPane() { // define createadmintransactionspane helper
+		Label lblRequests = new Label("Seed Requests"); // top section title
+		lblRequests.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_DARK + ";"); // bold heading
+
+		TableView<SeedRequest> requestTable = new TableView<>(); // seed requests table
+		requestTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); // stretch columns
+		requestTable.setPrefHeight(225); // table height
+		requestTable.setPlaceholder(new Label("No seed requests yet.")); // empty message
+
+		TableColumn<SeedRequest, Integer> colRequestID = new TableColumn<>("Request ID"); // id column
+		colRequestID.setCellValueFactory(new PropertyValueFactory<>("requestId")); // bind requestId
+
+		TableColumn<SeedRequest, String> colFarmer = new TableColumn<>("Farmer"); // farmer column
+		colFarmer.setCellValueFactory(new PropertyValueFactory<>("farmer")); // bind farmer
+
+		TableColumn<SeedRequest, String> colSeed = new TableColumn<>("Seed"); // seed column
+		colSeed.setCellValueFactory(new PropertyValueFactory<>("seedLabel")); // bind seedLabel
+
+		TableColumn<SeedRequest, Double> colAmount = new TableColumn<>("Amount (kg)"); // weight column
+		colAmount.setCellValueFactory(new PropertyValueFactory<>("amount")); // bind amount
+
+		TableColumn<SeedRequest, String> colDue = new TableColumn<>("Due Date"); // deadline column
+		colDue.setCellValueFactory(cell -> { // bind column value
+			SeedRequest r = cell.getValue(); // read row request
+			if (r.getDueDate() == null || r.getDueDate().isBlank()) { // no due date yet
+				return new SimpleStringProperty("-"); // display dash
+			}
+			return new SimpleStringProperty(r.isOverdue() ? r.getDueDate() + " (OVERDUE)" : r.getDueDate()); // highlight overdue dates
+		});
+
+		TableColumn<SeedRequest, String> colPurpose = new TableColumn<>("Purpose"); // purpose column
+		colPurpose.setCellValueFactory(new PropertyValueFactory<>("purpose")); // bind purpose
+
+		TableColumn<SeedRequest, String> colStatus = new TableColumn<>("Status"); // status badge column
+		colStatus.setCellValueFactory(new PropertyValueFactory<>("status")); // bind status
+		colStatus.setCellFactory(state.createStatusBadgeCell()); // render status pill
+
+		requestTable.getColumns().addAll(colRequestID, colFarmer, colSeed, colAmount, colDue, colPurpose, colStatus); // add columns
+		requestTable.setItems(state.requestData); // bind request list
+
+		Button btnApproveRequest = new Button("Approve Request"); // approve button
+		btnApproveRequest.setStyle(state.primaryButtonStyle()); // primary style
+		Button btnRejectRequest = new Button("Reject Request"); // reject button
+		btnRejectRequest.setStyle(state.dangerButtonStyle()); // danger style
+		HBox requestButtons = new HBox(10, btnApproveRequest, btnRejectRequest); // button row
+
+		Label lblReturns = new Label("Seed Returns (Harvest Repayments)"); // bottom section title
+		lblReturns.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_DARK + ";"); // bold heading
+
+		TableView<SeedReturn> returnTable = new TableView<>(); // seed returns table
+		returnTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); // stretch columns
+		returnTable.setPrefHeight(225); // table height
+		returnTable.setPlaceholder(new Label("No seed returns yet.")); // empty message
+
+		TableColumn<SeedReturn, Integer> colReturnID = new TableColumn<>("Return ID"); // return id column
+		colReturnID.setCellValueFactory(new PropertyValueFactory<>("returnId")); // bind returnId
+
+		TableColumn<SeedReturn, Integer> colLinkedReq = new TableColumn<>("Request ID"); // linked request id column
+		colLinkedReq.setCellValueFactory(new PropertyValueFactory<>("requestId")); // bind requestId
+
+		TableColumn<SeedReturn, String> colReturnFarmer = new TableColumn<>("Farmer"); // farmer column
+		colReturnFarmer.setCellValueFactory(new PropertyValueFactory<>("farmer")); // bind farmer
+
+		TableColumn<SeedReturn, String> colReturnSeed = new TableColumn<>("Seed"); // seed column
+		colReturnSeed.setCellValueFactory(new PropertyValueFactory<>("seedLabel")); // bind seedLabel
+
+		TableColumn<SeedReturn, Double> colReturnAmount = new TableColumn<>("Returned (kg)"); // returned weight column
+		colReturnAmount.setCellValueFactory(new PropertyValueFactory<>("amount")); // bind amount
+
+		TableColumn<SeedReturn, String> colReturnStatus = new TableColumn<>("Status"); // status badge column
+		colReturnStatus.setCellValueFactory(new PropertyValueFactory<>("status")); // bind status
+		colReturnStatus.setCellFactory(state.createStatusBadgeCell()); // render status pill
+
+		returnTable.getColumns().addAll(colReturnID, colLinkedReq, colReturnFarmer, colReturnSeed, colReturnAmount, colReturnStatus); // add columns
+		returnTable.setItems(state.returnData); // bind return list
+
+		Button btnAcceptReturn = new Button("Accept Return"); // accept return button
+		btnAcceptReturn.setStyle(state.primaryButtonStyle()); // primary style
+		Button btnRejectReturn = new Button("Reject Return"); // reject return button
+		btnRejectReturn.setStyle(state.dangerButtonStyle()); // danger style
+		HBox returnButtons = new HBox(10, btnAcceptReturn, btnRejectReturn); // button row
+
+		Label lblWarn = new Label(); // action feedback label
+		lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppState.PRIMARY_GREEN + ";"); // green status text
+
+		btnApproveRequest.setOnAction(e -> approveRequest(requestTable, lblWarn)); // approve selected request
+		btnRejectRequest.setOnAction(e -> rejectRequest(requestTable, lblWarn)); // reject selected request
+		btnAcceptReturn.setOnAction(e -> acceptReturn(returnTable, requestTable, lblWarn)); // accept selected return and clear overdue status
+		btnRejectReturn.setOnAction(e -> rejectReturn(returnTable, lblWarn)); // reject selected return
+
+		VBox reqCard = new VBox(12, lblRequests, requestTable, requestButtons); // requests white card
+		reqCard.setStyle(state.cardStyle()); // card style
+
+		VBox retCard = new VBox(12, lblReturns, returnTable, returnButtons, lblWarn); // returns white card
+		retCard.setStyle(state.cardStyle()); // card style
+
+		VBox root = new VBox(20, reqCard, retCard); // main transactions container
+		root.setPadding(new Insets(24, 28, 28, 28)); // outer margins
+		return root; // return transactions pane
+	}
+
+	// approve a pending seed request, deduct inventory, and assign a 30-day return due date
+	private void approveRequest(TableView<SeedRequest> table, Label lblWarn) { // define approverequest helper
+		SeedRequest request = table.getSelectionModel().getSelectedItem(); // get selected request
+		if (request == null) { // check selection
+			lblWarn.setText("Error: Please select a request first."); // error text
+			return; // abort
+		}
+		if (!"Pending".equalsIgnoreCase(request.getStatus())) { // ensure status is Pending
+			lblWarn.setText("Error: This request is already " + request.getStatus() + "."); // error text
+			return; // abort
+		}
+
+		Product product = state.findProduct(request.getLotId()); // look up seed lot
+		if (product == null) { // ensure lot exists
+			lblWarn.setText("Error: The seed lot no longer exists."); // error text
+			return; // abort
+		}
+		if (product.getAmount() < request.getAmount()) { // ensure sufficient inventory
+			lblWarn.setText("Error: Not enough stock for this request."); // error text
+			return; // abort
+		}
+
+		product.setAmount(state.round2(product.getAmount() - request.getAmount())); // deduct approved weight from stock
+		request.setStatus("Approved"); // mark request approved
+		if (request.getDueDate() == null || request.getDueDate().isBlank()) { // assign 30-day return deadline if not set
+			request.setDueDate(LocalDate.now().plusDays(30).toString()); // set due date 30 days ahead
+		}
+
+		state.updateSummaryMetrics(); // update inventory totals
+		state.saveProducts(); // save products.txt
+		state.saveRequests(); // save requests.txt
+		table.refresh(); // refresh requests table
+		if (state.inventoryTable != null) { // refresh inventory table if initialized
+			state.inventoryTable.refresh(); // redraw rows
+		}
+		lblWarn.setText("Request #" + request.getRequestId() + " approved. Stock updated and due date set to " + request.getDueDate() + "."); // success notice
+	}
+
+	// reject a pending seed request
+	private void rejectRequest(TableView<SeedRequest> table, Label lblWarn) { // define rejectrequest helper
+		SeedRequest request = table.getSelectionModel().getSelectedItem(); // get selected request
+		if (request == null) { // check selection
+			lblWarn.setText("Error: Please select a request first."); // error text
+			return; // abort
+		}
+		if (!"Pending".equalsIgnoreCase(request.getStatus())) { // ensure Pending status
+			lblWarn.setText("Error: This request is already " + request.getStatus() + "."); // error text
+			return; // abort
+		}
+
+		request.setStatus("Rejected"); // mark request rejected
+		state.saveRequests(); // persist to requests.txt
+		table.refresh(); // refresh table
+		lblWarn.setText("Request #" + request.getRequestId() + " rejected."); // status message
+	}
+
+	// accept a seed return, replenish inventory stock, and clear overdue status on the linked request
+	private void acceptReturn(TableView<SeedReturn> returnTable, TableView<SeedRequest> requestTable, Label lblWarn) { // define acceptreturn helper
+		SeedReturn ret = returnTable.getSelectionModel().getSelectedItem(); // get selected return
+		if (ret == null) { // check selection
+			lblWarn.setText("Error: Please select a return first."); // error text
+			return; // abort
+		}
+		if (!"Pending".equalsIgnoreCase(ret.getStatus())) { // ensure Pending status
+			lblWarn.setText("Error: This return is already " + ret.getStatus() + "."); // error text
+			return; // abort
+		}
+
+		Product product = state.findProduct(ret.getLotId()); // look up target seed lot
+		if (product == null) { // ensure lot exists
+			lblWarn.setText("Error: The seed lot no longer exists."); // error text
+			return; // abort
+		}
+
+		product.setAmount(state.round2(product.getAmount() + ret.getAmount())); // add returned seeds back into inventory
+		ret.setStatus("Accepted"); // mark return accepted
+
+		// mark the linked loan request as Returned so any overdue flag is cleared
+		for (SeedRequest req : state.requestData) { // find matching request by id
+			if (req.getRequestId() == ret.getRequestId()) { // match request id
+				req.setStatus("Returned"); // clear active/overdue loan state
+				break; // exit loop once updated
 			}
 		}
-		activityBox.getChildren().addAll(lblActTitle, actItems);
 
-		Label lblFeedback = new Label();
-		lblFeedback.setStyle("-fx-text-fill: " + state.PRIMARY_GREEN + "; -fx-font-weight: bold; -fx-font-size: 12px;");
-
-		// Action Controls: Verify User, Assign Admin, Suspend / Reactivate User
-		HBox actionBar = new HBox(10);
-		actionBar.setAlignment(Pos.CENTER_RIGHT);
-
-		Button btnVerify = new Button(targetUser.isVerified() ? state.t("Verified \u2713", "Verified Na \u2713") : state.t("Verify User", "I-verify ang User"));
-		btnVerify.setStyle(state.primaryButtonStyle());
-		btnVerify.setDisable(targetUser.isVerified());
-		btnVerify.setOnAction(e -> {
-			targetUser.setStatus("Verified");
-			state.saveUsers(state.userPath, state.users);
-			lblFeedback.setText(state.t("User verified! Full farmer access granted.", "Verified na ang farmer! May full access na siya."));
-			modal.close();
-			showAdminShell();
-		});
-
-		boolean isAlreadyAdmin = "Admin".equalsIgnoreCase(targetUser.getRole());
-		Button btnAssignAdmin = new Button(isAlreadyAdmin ? state.t("Revoke Admin (Set Farmer)", "Alisin Bilang Admin (Gawing Farmer)") : state.t("Assign Admin", "Gawing Admin"));
-		btnAssignAdmin.setStyle(state.outlineButtonStyle());
-		btnAssignAdmin.setDisable(targetUser.getUsername().equalsIgnoreCase(state.currentUser.getUsername()));
-		btnAssignAdmin.setOnAction(e -> {
-			if (isAlreadyAdmin) {
-				targetUser.setRole("Farmer");
-			} else {
-				targetUser.setRole("Admin");
-				targetUser.setStatus("Verified");
-			}
-			state.saveUsers(state.userPath, state.users);
-			modal.close();
-			showAdminShell();
-		});
-
-		boolean isSuspended = targetUser.isSuspended();
-		Button btnSuspend = new Button(isSuspended ? "Unsuspend User" : "Suspend User");
-		btnSuspend.setStyle(state.dangerOutlineButtonStyle());
-		btnSuspend.setDisable(targetUser.getUsername().equalsIgnoreCase(state.currentUser.getUsername()));
-		btnSuspend.setOnAction(e -> {
-			if (isSuspended) {
-				targetUser.setStatus("Verified");
-				targetUser.setSuspensionReason("");
-				state.saveUsers(state.userPath, state.users);
-				modal.close();
-				showAdminShell();
-			} else {
-				// Ask admin for a suspension reason
-				Stage reasonStage = new Stage();
-				reasonStage.initOwner(modal);
-				reasonStage.initModality(Modality.APPLICATION_MODAL);
-				reasonStage.initStyle(StageStyle.UTILITY);
-				reasonStage.setTitle("Suspension Reason");
-
-				VBox reasonBox = new VBox(12);
-				reasonBox.setPadding(new Insets(20));
-				reasonBox.setStyle("-fx-background-color: " + state.bgCard() + ";");
-
-				Label lblR = new Label("Please provide a reason for suspending this account:");
-				lblR.setStyle("-fx-font-size: 13px; -fx-text-fill: " + state.textPrimary() + ";");
-
-				TextArea txtReason = new TextArea();
-				txtReason.setPromptText("e.g. Repeated overdue seed returns, policy violation...");
-				txtReason.setPrefRowCount(3);
-				txtReason.setWrapText(true);
-				txtReason.setStyle(state.inputStyle());
-
-				Label reasonWarn = new Label();
-				reasonWarn.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 12px;");
-
-				Button btnConfirm = new Button("Confirm Suspension");
-				btnConfirm.setStyle(state.dangerOutlineButtonStyle());
-				btnConfirm.setOnAction(ev -> {
-					String reason = txtReason.getText().trim();
-					if (reason.isEmpty()) {
-						reasonWarn.setText("A reason is required.");
-						return;
-					}
-					targetUser.setStatus("Suspended");
-					targetUser.setSuspensionReason(reason);
-					state.saveUsers(state.userPath, state.users);
-					reasonStage.close();
-					modal.close();
-					showAdminShell();
-				});
-
-				Button btnCancel = new Button("Cancel");
-				btnCancel.setStyle(state.outlineButtonStyle());
-				btnCancel.setOnAction(ev -> reasonStage.close());
-
-				HBox rBtns = new HBox(10, btnCancel, btnConfirm);
-				rBtns.setAlignment(Pos.CENTER_RIGHT);
-				reasonBox.getChildren().addAll(lblR, txtReason, reasonWarn, rBtns);
-				reasonStage.setScene(new Scene(reasonBox, 420, 240));
-				reasonStage.showAndWait();
-			}
-		});
-
-		Button btnClose = new Button(state.t("Close", "Isara"));
-		btnClose.setStyle(state.outlineButtonStyle());
-		btnClose.setOnAction(e -> modal.close());
-
-		actionBar.getChildren().addAll(btnClose, btnSuspend, btnAssignAdmin, btnVerify);
-
-		card.getChildren().addAll(lblHeader, grid, activityBox, lblFeedback, actionBar);
-
-		Scene scene = new Scene(card, 660, 490);
-		modal.setScene(scene);
-		modal.showAndWait();
+		state.updateSummaryMetrics(); // refresh inventory totals
+		state.saveProducts(); // persist updated stock
+		state.saveReturns(); // persist return status
+		state.saveRequests(); // persist cleared overdue status
+		returnTable.refresh(); // refresh returns table
+		requestTable.refresh(); // refresh requests table so OVERDUE badge disappears
+		if (state.inventoryTable != null) { // refresh inventory table if initialized
+			state.inventoryTable.refresh(); // redraw rows
+		}
+		lblWarn.setText("Return #" + ret.getReturnId() + " accepted. Stock replenished and loan overdue status cleared."); // success notice
 	}
 
+	// reject a pending seed return
+	private void rejectReturn(TableView<SeedReturn> table, Label lblWarn) { // define rejectreturn helper
+		SeedReturn ret = table.getSelectionModel().getSelectedItem(); // get selected return
+		if (ret == null) { // check selection
+			lblWarn.setText("Error: Please select a return first."); // error text
+			return; // abort
+		}
+		if (!"Pending".equalsIgnoreCase(ret.getStatus())) { // ensure Pending status
+			lblWarn.setText("Error: This return is already " + ret.getStatus() + "."); // error text
+			return; // abort
+		}
 
+		ret.setStatus("Rejected"); // mark return rejected
+		state.saveReturns(); // persist to returns.txt
+		table.refresh(); // refresh table
+		lblWarn.setText("Return #" + ret.getReturnId() + " rejected."); // status notice
+	}
 
-	// Modal for creating a new farm / user account.
-	private void openAdminCreateAccountModal() {
-		Stage modal = new Stage();
-		modal.initOwner(state.mainStage);
-		modal.initModality(Modality.APPLICATION_MODAL);
-		modal.initStyle(StageStyle.UTILITY);
-		modal.setTitle(state.t("Add Farm / User Account", "Magdagdag ng Account"));
+	// =========================================================================
+	// 5. DONATIONS TAB
+	// =========================================================================
+	private VBox createAdminDonationsPane() { // define createadmindonationspane helper
+		state.updateDonationTotal(); // refresh total donations label
+		state.lblDonationTotal.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + AppState.PRIMARY_GREEN + ";"); // green bold total
 
-		VBox card = new VBox(16);
-		card.setPadding(new Insets(26));
-		card.setStyle("-fx-background-color: " + state.bgCard() + ";");
+		TableView<Donation> table = new TableView<>(); // donations table
+		table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); // stretch columns
+		table.setPrefHeight(450); // table height
 
-		Label lblTitle = new Label(state.t("Add Farm Account", "Magdagdag ng Farm Account"));
-		lblTitle.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
+		TableColumn<Donation, String> colDonor = new TableColumn<>("Donor"); // donor column
+		colDonor.setCellValueFactory(new PropertyValueFactory<>("donorName")); // bind donorName
 
-		GridPane grid = new GridPane();
-		grid.setHgap(18);
-		grid.setVgap(12);
-		ColumnConstraints c1 = new ColumnConstraints();
-		c1.setPercentWidth(50);
-		ColumnConstraints c2 = new ColumnConstraints();
-		c2.setPercentWidth(50);
-		grid.getColumnConstraints().addAll(c1, c2);
+		TableColumn<Donation, String> colEmail = new TableColumn<>("Email"); // email column
+		colEmail.setCellValueFactory(new PropertyValueFactory<>("email")); // bind email
 
-		TextField txtUsername = new TextField();
-		txtUsername.setPromptText("e.g. pedro_farmer");
-		txtUsername.setStyle(state.inputStyle());
+		TableColumn<Donation, Double> colAmount = new TableColumn<>("Amount (\u20b1)"); // amount column
+		colAmount.setCellValueFactory(new PropertyValueFactory<>("amount")); // bind amount
 
-		PasswordField txtPassword = new PasswordField();
-		txtPassword.setPromptText("\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022");
-		txtPassword.setStyle(state.inputStyle());
+		TableColumn<Donation, String> colMessage = new TableColumn<>("Message"); // message column
+		colMessage.setCellValueFactory(new PropertyValueFactory<>("message")); // bind message
 
-		TextField txtPhone = new TextField();
-		txtPhone.setPromptText("0917-000-0000");
-		txtPhone.setStyle(state.inputStyle());
+		table.getColumns().addAll(colDonor, colEmail, colAmount, colMessage); // add columns
+		table.setItems(state.donationData); // bind donation list
+		table.setPlaceholder(new Label("No donations yet.")); // empty message
 
-		TextField txtEmail = new TextField();
-		txtEmail.setPromptText("farmer@laguna.ph");
-		txtEmail.setStyle(state.inputStyle());
+		VBox card = new VBox(14, state.lblDonationTotal, table); // wrap in white card
+		card.setStyle(state.cardStyle()); // card style
 
-		TextField txtFarmName = new TextField();
-		txtFarmName.setPromptText("e.g. Bay Laguna Farm");
-		txtFarmName.setStyle(state.inputStyle());
+		VBox root = new VBox(20, card); // main donations container
+		root.setPadding(new Insets(24, 28, 28, 28)); // outer margins
+		return root; // return donations pane
+	}
 
-		TextField txtFarmAddress = new TextField();
-		txtFarmAddress.setPromptText("Barangay, Municipality, Laguna");
-		txtFarmAddress.setStyle(state.inputStyle());
+	// dialog for adding a new seed product lot to inventory
+	private void createNewProduct() { // define createnewproduct helper
+		Stage dialogStage = new Stage(); // create modal stage
+		dialogStage.initOwner(mainStage); // set owner stage
+		dialogStage.initModality(Modality.APPLICATION_MODAL); // block parent window
+		dialogStage.setTitle("Add Seed Lot"); // dialog title
 
-		ComboBox<String> roleCombo = new ComboBox<>();
-		roleCombo.getItems().addAll("Farmer", "Admin");
-		roleCombo.setValue("Farmer");
-		roleCombo.setMaxWidth(Double.MAX_VALUE);
-		roleCombo.setStyle(state.inputStyle());
+		TextField textName = new TextField(); // crop name input
+		textName.setStyle(state.inputStyle()); // input css
+		TextField textPrice = new TextField(); // price per kg input
+		textPrice.setStyle(state.inputStyle()); // input css
+		TextField textAmount = new TextField(); // stock weight input
+		textAmount.setStyle(state.inputStyle()); // input css
+		TextField textLotID = new TextField(); // lot id input
+		textLotID.setStyle(state.inputStyle()); // input css
+		TextField textLocation = new TextField(); // storage location input
+		textLocation.setStyle(state.inputStyle()); // input css
+		TextField textVariety = new TextField(); // variety input
+		textVariety.setStyle(state.inputStyle()); // input css
+		TextField textDescription = new TextField(); // description input
+		textDescription.setStyle(state.inputStyle()); // input css
 
-		ComboBox<String> verifyCombo = new ComboBox<>();
-		verifyCombo.getItems().addAll("Verified", "Pending");
-		verifyCombo.setValue("Verified"); // Option 2: accounts created by admin are active immediately
-		verifyCombo.setMaxWidth(Double.MAX_VALUE);
-		verifyCombo.setStyle(state.inputStyle());
+		GridPane grid = new GridPane(); // two-column form grid
+		grid.setHgap(12); // horizontal gap
+		grid.setVgap(10); // vertical gap
+		grid.addRow(0, new Label("Crop Name:"), textName); // row 0
+		grid.addRow(1, new Label("Price / kg (\u20b1):"), textPrice); // row 1
+		grid.addRow(2, new Label("Stock (kg):"), textAmount); // row 2
+		grid.addRow(3, new Label("Lot ID:"), textLotID); // row 3
+		grid.addRow(4, new Label("Location:"), textLocation); // row 4
+		grid.addRow(5, new Label("Variety:"), textVariety); // row 5
+		grid.addRow(6, new Label("Description:"), textDescription); // row 6
 
-		grid.add(state.wrapField(state.t("Username *", "Username *"), txtUsername), 0, 0);
-		grid.add(state.wrapField(state.t("Password *", "Password *"), txtPassword), 1, 0);
-		grid.add(state.wrapField(state.t("Phone Number *", "Cellphone Number *"), txtPhone), 0, 1);
-		grid.add(state.wrapField(state.t("Email Address *", "Email Address *"), txtEmail), 1, 1);
-		grid.add(state.wrapField(state.t("Farm Name", "Pangalan ng Sakahan"), txtFarmName), 0, 2);
-		grid.add(state.wrapField(state.t("Farm Address *", "Address ng Sakahan *"), txtFarmAddress), 1, 2);
-		grid.add(state.wrapField(state.t("Account Role (Admin / Farmer) *", "Role ng Account (Admin / Farmer) *"), roleCombo), 0, 3);
-		grid.add(state.wrapField(state.t("Initial Verification Status", "Status ng Verification"), verifyCombo), 1, 3);
+		Button btnCreate = new Button("Save Seed Lot"); // submit button
+		btnCreate.setStyle(state.primaryButtonStyle()); // primary style
+		Label labelWarn = new Label(); // validation error label
+		labelWarn.setStyle("-fx-text-fill: #b42318; -fx-font-size: 12px;"); // red text
 
-		Label lblWarn = new Label();
-		lblWarn.setStyle("-fx-text-fill: #dc3545; -fx-font-weight: bold; -fx-font-size: 12px;");
+		btnCreate.setOnAction(e -> { // attach click listener
+			String name = textName.getText().trim(); // read crop name
+			String priceStr = textPrice.getText().trim(); // read price
+			String amountStr = textAmount.getText().trim(); // read amount
+			String lotIDStr = textLotID.getText().trim(); // read lot id
+			String location = textLocation.getText().trim(); // read location
+			String variety = textVariety.getText().trim(); // read variety
+			String description = textDescription.getText().trim(); // read description
 
-		HBox buttons = new HBox(12);
-		buttons.setAlignment(Pos.CENTER_RIGHT);
-
-		Button btnCancel = new Button(state.t("Cancel", "Kanselahin"));
-		btnCancel.setStyle(state.outlineButtonStyle());
-		btnCancel.setOnAction(e -> modal.close());
-
-		Button btnSave = new Button(state.t("Save Account", "I-save ang Account"));
-		btnSave.setStyle(state.primaryButtonStyle());
-		btnSave.setOnAction(e -> {
-			String uname = txtUsername.getText().trim();
-			String pass = txtPassword.getText();
-			String phone = txtPhone.getText().trim();
-			String email = txtEmail.getText().trim();
-			String addr = txtFarmAddress.getText().trim();
-			String role = roleCombo.getValue();
-			String fName = txtFarmName.getText().trim().isEmpty() ? uname + " Farm" : txtFarmName.getText().trim();
-			String initStatus = "Admin".equalsIgnoreCase(role) ? "Verified" : verifyCombo.getValue();
-
-			if (uname.isEmpty() || pass.isEmpty() || phone.isEmpty() || email.isEmpty() || addr.isEmpty()) {
-				lblWarn.setText(state.t("Error: All required fields (*) must be completed.", "Oops! Paki-fill up lahat ng required fields (*)."));
-				return;
+			if (name.isEmpty() || priceStr.isEmpty() || amountStr.isEmpty() || lotIDStr.isEmpty() // continue statement
+					|| location.isEmpty() || variety.isEmpty() || description.isEmpty()) { // check all fields filled
+				labelWarn.setText("Error: All fields are required!"); // show missing fields message
+				return; // abort
 			}
-			for (User u : state.users) {
-				if (u.getUsername().equalsIgnoreCase(uname)) {
-					lblWarn.setText(state.t("Error: Username already exists.", "May gumagamit na ng username na 'yan."));
-					return;
+
+			try { // attempt risky block
+				double price = Double.parseDouble(priceStr); // parse numeric price
+				double amount = Double.parseDouble(amountStr); // parse numeric stock
+				int lotID = Integer.parseInt(lotIDStr); // parse integer lot id
+				if (state.findProduct(lotID) != null) { // ensure unique lot id
+					labelWarn.setText("Error: Lot ID " + lotID + " already exists!"); // show duplicate lot id error
+					return; // abort
 				}
-			}
 
-			String prefix = "Admin".equalsIgnoreCase(role) ? "ADM-" : "FRM-";
-			String uid = String.format("%s%03d", prefix, state.nextUserId++);
-			state.users.add(new User(uid, uname, pass, role, phone, email, fName, addr, "RSBSA-" + state.nextUserId, "1.5 ha", initStatus));
-			state.saveUsers(state.userPath, state.users);
-			modal.close();
-			showAdminShell();
+				state.productData.add(new Product(name, price, amount, lotID, location, variety, description)); // add new lot
+				state.saveProducts(); // save to products.txt
+				dialogStage.close(); // close modal
+			} catch (NumberFormatException ex) { // handle exception
+				labelWarn.setText("Error: Price, Stock, and Lot ID must be valid numbers!"); // show numeric parse error
+			}
 		});
 
-		buttons.getChildren().addAll(btnCancel, btnSave);
-		card.getChildren().addAll(lblTitle, grid, lblWarn, buttons);
-
-		modal.setScene(new Scene(card, 640, 470));
-		modal.showAndWait();
+		VBox vbox = new VBox(14, grid, labelWarn, btnCreate); // dialog container
+		vbox.setPadding(new Insets(20)); // outer padding
+		vbox.setStyle("-fx-background-color: #ffffff;"); // white background
+		dialogStage.setScene(new Scene(vbox, 420, 390)); // set scene size
+		dialogStage.showAndWait(); // display modal
 	}
 
+	// dialog showing full details for a selected seed lot with edit and delete options
+	private void openProductDetailDialog(Product product) { // define openproductdetaildialog helper
+		Stage detailStage = new Stage(); // create modal stage
+		detailStage.initOwner(mainStage); // set owner stage
+		detailStage.initModality(Modality.APPLICATION_MODAL); // block background clicks
+		detailStage.setTitle("Seed Lot Details"); // dialog title
 
+		Label labelName = new Label("Name: " + product.getName()); // crop name
+		Label labelPrice = new Label("Price / kg: \u20b1" + product.getPrice()); // unit price
+		Label labelAmount = new Label("Stock: " + product.getAmount() + " kg"); // stock weight
+		Label labelLotID = new Label("Lot ID: " + product.getLotID()); // lot id
+		Label labelLocation = new Label("Location: " + product.getLocation()); // location
+		Label labelVariety = new Label("Variety: " + product.getVariety()); // variety
+		Label labelDescription = new Label("Description: " + product.getDescription()); // description
+		labelDescription.setWrapText(true); // wrap description text
 
-	// =========================================================================
-	// ADMIN TRANSACTIONS VIEW (SLIDE 8 & SLIDE 9: REQUESTS & RETURNS)
-	// =========================================================================
-	private VBox buildAdminTransactionsView() {
-		VBox container = new VBox(18);
+		Button btnEdit = new Button("Edit"); // edit button
+		btnEdit.setStyle(state.primaryButtonStyle()); // primary style
+		btnEdit.setOnAction(e -> openEditProductDialog(product, detailStage)); // open edit form
 
-		long pendingReqs = state.requestData.stream().filter(r -> "Pending".equalsIgnoreCase(r.getStatus())).count();
-		long activeLoans = state.requestData.stream().filter(r -> "Approved".equalsIgnoreCase(r.getStatus())).count();
-		long dueSoon = state.requestData.stream().filter(r -> "Approved".equalsIgnoreCase(r.getStatus())
-				&& r.getDueDate() != null && !r.getDueDate().isAfter(LocalDate.now().plusDays(14))).count();
-
-		HBox topCards = new HBox(16);
-		topCards.getChildren().addAll(
-				state.createStatCard(state.t("Pending Requests", "Mga Pending na Request"), String.valueOf(pendingReqs), state.t("Awaiting approval", "Pending pa ang approval"), "#d97706"),
-				state.createStatCard(state.t("Active Loans", "Mga Active na Hiram"), String.valueOf(activeLoans), state.t("Disbursed seed lots", "Naipahiram na binhi"), state.PRIMARY_GREEN),
-				state.createStatCard(state.t("Returns Due Soon / Late", "Malapit na / Late na Due Date"), String.valueOf(dueSoon), state.t("Within 14 days or overdue", "Sa loob ng 14 days o overdue na"), "#dc3545"));
-
-		VBox tableCard = new VBox(14);
-		tableCard.setStyle(state.cardStyle());
-		VBox.setVgrow(tableCard, Priority.ALWAYS);
-
-		HBox filterBar = new HBox(12);
-		filterBar.setAlignment(Pos.CENTER_LEFT);
-
-		TextField txtSearch = new TextField();
-		txtSearch.setPromptText(state.t("\ud83d\udd0d  Search requests by farmer, farm, or seed...", "\ud83d\udd0d  Maghanap ng request..."));
-		txtSearch.setPrefWidth(360);
-		txtSearch.setStyle(state.inputStyle());
-
-		Region spacer = new Region();
-		HBox.setHgrow(spacer, Priority.ALWAYS);
-
-		Button btnSort = new Button(state.t("\u21c5  Sort by Due Date", "\u21c5  Ayusin ayon sa Due Date"));
-		btnSort.setStyle(state.primaryButtonStyle());
-		btnSort.setOnAction(e -> FXCollections.sort(state.requestData, Comparator.comparing(SeedRequest::getDueDate)));
-
-		filterBar.getChildren().addAll(txtSearch, spacer, btnSort);
-
-		FilteredList<SeedRequest> filteredReqs = new FilteredList<>(state.requestData, r -> true);
-		txtSearch.textProperty().addListener((obs, oldV, newV) -> {
-			String q = newV == null ? "" : newV.trim().toLowerCase();
-			filteredReqs.setPredicate(r -> q.isEmpty()
-					|| r.getTransactionCode().toLowerCase().contains(q)
-					|| r.getFarmer().toLowerCase().contains(q)
-					|| r.getFarmName().toLowerCase().contains(q)
-					|| r.getSeedLabel().toLowerCase().contains(q));
+		Button btnDelete = new Button("Delete"); // delete button
+		btnDelete.setStyle(state.dangerButtonStyle()); // danger style
+		btnDelete.setOnAction(e -> { // attach click listener
+			state.productData.remove(product); // remove lot from inventory
+			state.saveProducts(); // save to products.txt
+			detailStage.close(); // close modal
 		});
 
-		TableView<SeedRequest> reqTable = new TableView<>(filteredReqs);
-		reqTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-		reqTable.setPrefHeight(210);
+		HBox hBoxButtons = new HBox(10, btnEdit, btnDelete); // action button bar
 
-		TableColumn<SeedRequest, String> colTxId = new TableColumn<>(state.t("Transaction ID", "Transaction ID"));
-		colTxId.setCellValueFactory(new PropertyValueFactory<>("transactionCode"));
+		VBox vbox = new VBox(10, labelName, labelPrice, labelAmount, labelLotID, // continue statement
+				labelLocation, labelVariety, labelDescription, hBoxButtons); // dialog layout
+		vbox.setPadding(new Insets(20)); // outer padding
+		vbox.setStyle("-fx-background-color: #ffffff;"); // white background
 
-		TableColumn<SeedRequest, String> colFarm = new TableColumn<>(state.t("Farm / Farmer", "Sakahan / Farmer"));
-		colFarm.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getFarmName() + " (" + c.getValue().getFarmer() + ")"));
+		detailStage.setScene(new Scene(vbox, 400, 320)); // set scene size
+		detailStage.showAndWait(); // display modal
+	}
 
-		TableColumn<SeedRequest, String> colSeed = new TableColumn<>(state.t("Seed Product", "Binhi"));
-		colSeed.setCellValueFactory(new PropertyValueFactory<>("seedLabel"));
+	// dialog for editing an existing seed lot's fields
+	private void openEditProductDialog(Product product, Stage detailStage) { // define openeditproductdialog helper
+		Stage editStage = new Stage(); // create edit stage
+		editStage.initOwner(detailStage); // set owner stage
+		editStage.initModality(Modality.APPLICATION_MODAL); // block parent clicks
+		editStage.setTitle("Edit Seed Lot"); // dialog title
 
-		TableColumn<SeedRequest, String> colQty = new TableColumn<>(state.t("Quantity", "Dami"));
-		colQty.setCellValueFactory(new PropertyValueFactory<>("quantityLabel"));
+		TextField textName = new TextField(product.getName()); // prefill name
+		textName.setStyle(state.inputStyle()); // input css
+		TextField textPrice = new TextField(String.valueOf(product.getPrice())); // prefill price
+		textPrice.setStyle(state.inputStyle()); // input css
+		TextField textAmount = new TextField(String.valueOf(product.getAmount())); // prefill amount
+		textAmount.setStyle(state.inputStyle()); // input css
+		TextField textLotID = new TextField(String.valueOf(product.getLotID())); // prefill lot id
+		textLotID.setStyle(state.inputStyle()); // input css
+		TextField textLocation = new TextField(product.getLocation()); // prefill location
+		textLocation.setStyle(state.inputStyle()); // input css
+		TextField textVariety = new TextField(product.getVariety()); // prefill variety
+		textVariety.setStyle(state.inputStyle()); // input css
+		TextField textDescription = new TextField(product.getDescription()); // prefill description
+		textDescription.setStyle(state.inputStyle()); // input css
 
-		TableColumn<SeedRequest, String> colDue = new TableColumn<>(state.t("Due Date", "Due Date"));
-		colDue.setCellValueFactory(c -> new SimpleStringProperty(
-				c.getValue().getDueDate() == null ? "-" : c.getValue().getDueDate().format(state.DATE_FMT)));
+		GridPane grid = new GridPane(); // two-column form grid
+		grid.setHgap(12); // horizontal gap
+		grid.setVgap(10); // vertical gap
+		grid.addRow(0, new Label("Crop Name:"), textName); // row 0
+		grid.addRow(1, new Label("Price / kg (\u20b1):"), textPrice); // row 1
+		grid.addRow(2, new Label("Stock (kg):"), textAmount); // row 2
+		grid.addRow(3, new Label("Lot ID:"), textLotID); // row 3
+		grid.addRow(4, new Label("Location:"), textLocation); // row 4
+		grid.addRow(5, new Label("Variety:"), textVariety); // row 5
+		grid.addRow(6, new Label("Description:"), textDescription); // row 6
 
-		TableColumn<SeedRequest, String> colStatus = new TableColumn<>(state.t("Status", "Status"));
-		colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
-		colStatus.setCellFactory(col -> state.createStatusBadgeCell());
+		Button btnSave = new Button("Save Changes"); // save changes button
+		btnSave.setStyle(state.primaryButtonStyle()); // primary style
+		Label labelWarn = new Label(); // validation error label
+		labelWarn.setStyle("-fx-text-fill: #b42318; -fx-font-size: 12px;"); // red text
 
-		TableColumn<SeedRequest, Void> colView = new TableColumn<>("");
-		colView.setCellFactory(col -> new TableCell<SeedRequest, Void>() {
-			private final Button btnView = new Button(state.t("View", "Tingnan"));
-			{
-				btnView.setStyle("-fx-background-color: " + state.PRIMARY_GREEN + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 5 16 5 16; -fx-cursor: hand;");
-				btnView.setOnAction(e -> openTransactionDetailModal(getTableView().getItems().get(getIndex())));
+		btnSave.setOnAction(e -> { // attach click listener
+			String name = textName.getText().trim(); // read name
+			String priceStr = textPrice.getText().trim(); // read price
+			String amountStr = textAmount.getText().trim(); // read amount
+			String lotIDStr = textLotID.getText().trim(); // read lot id
+			String location = textLocation.getText().trim(); // read location
+			String variety = textVariety.getText().trim(); // read variety
+			String description = textDescription.getText().trim(); // read description
+
+			if (name.isEmpty() || priceStr.isEmpty() || amountStr.isEmpty() || lotIDStr.isEmpty() // continue statement
+					|| location.isEmpty() || variety.isEmpty() || description.isEmpty()) { // validate non-empty fields
+				labelWarn.setText("Error: All fields are required!"); // show missing fields message
+				return; // abort
 			}
 
-			@Override
-			protected void updateItem(Void item, boolean empty) {
-				super.updateItem(item, empty);
-				setGraphic(empty ? null : btnView);
-			}
-		});
+			try { // attempt risky block
+				double price = Double.parseDouble(priceStr); // parse price
+				double amount = Double.parseDouble(amountStr); // parse stock weight
+				int lotID = Integer.parseInt(lotIDStr); // parse lot id
 
-		reqTable.getColumns().addAll(colTxId, colFarm, colSeed, colQty, colDue, colStatus, colView);
+				product.setName(name); // update name
+				product.setPrice(price); // update price
+				product.setAmount(amount); // update amount
+				product.setLotID(lotID); // update lot id
+				product.setLocation(location); // update location
+				product.setVariety(variety); // update variety
+				product.setDescription(description); // update description
 
-		// Seed Returns Sub-section
-		Label lblReturnsHeader = new Label(state.t("Seed Returns Inspection Queue", "Mga Ibinalik na Binhi (For Inspection)"));
-		lblReturnsHeader.setStyle("-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
-
-		TableView<SeedReturn> retTable = new TableView<>(state.returnData);
-		retTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-		retTable.setPrefHeight(160);
-
-		TableColumn<SeedReturn, String> colRetCode = new TableColumn<>(state.t("Return ID", "Return ID"));
-		colRetCode.setCellValueFactory(new PropertyValueFactory<>("returnCode"));
-
-		TableColumn<SeedReturn, String> colRetFarmer = new TableColumn<>(state.t("Farmer", "Farmer"));
-		colRetFarmer.setCellValueFactory(new PropertyValueFactory<>("farmer"));
-
-		TableColumn<SeedReturn, String> colRetSeed = new TableColumn<>(state.t("Seed Product", "Binhi"));
-		colRetSeed.setCellValueFactory(new PropertyValueFactory<>("seedLabel"));
-
-		TableColumn<SeedReturn, String> colRetQty = new TableColumn<>(state.t("Returned Qty", "Ibinalik na Dami"));
-		colRetQty.setCellValueFactory(new PropertyValueFactory<>("quantityLabel"));
-
-		TableColumn<SeedReturn, String> colRetStatus = new TableColumn<>(state.t("Status", "Status"));
-		colRetStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
-		colRetStatus.setCellFactory(col -> state.createStatusBadgeCell());
-
-		TableColumn<SeedReturn, Void> colRetAction = new TableColumn<>(state.t("Inspection", "Inspeksyon"));
-		colRetAction.setCellFactory(col -> new TableCell<SeedReturn, Void>() {
-			private final Button btnAccept = new Button(state.t("Accept", "Tanggapin"));
-			private final Button btnReject = new Button(state.t("Reject", "I-reject"));
-			private final HBox box = new HBox(6, btnAccept, btnReject);
-			{
-				btnAccept.setStyle("-fx-background-color: " + state.PRIMARY_GREEN + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6; -fx-padding: 4 10 4 10; -fx-cursor: hand;");
-				btnReject.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6; -fx-padding: 4 10 4 10; -fx-cursor: hand;");
-				btnAccept.setOnAction(e -> {
-					SeedReturn ret = getTableView().getItems().get(getIndex());
-					if ("Pending".equalsIgnoreCase(ret.getStatus())) {
-						Product prod = state.findProduct(ret.getLotId());
-						if (prod != null) {
-							prod.setAmount(state.round2(prod.getAmount() + ret.getAmount()));
-							state.saveProducts(state.productPath, state.productData);
-						}
-						ret.setStatus("Accepted");
-						// Clear overdue status on the linked seed request
-						for (SeedRequest req : state.requestData) {
-							if (req.getRequestId() == ret.getRequestId()) {
-								req.setStatus("Returned");
-								break;
-							}
-						}
-						showAdminShell();
-					}
-				});
-				btnReject.setOnAction(e -> {
-					SeedReturn ret = getTableView().getItems().get(getIndex());
-					if ("Pending".equalsIgnoreCase(ret.getStatus())) {
-						ret.setStatus("Rejected");
-						showAdminShell();
-					}
-				});
-			}
-
-			@Override
-			protected void updateItem(Void item, boolean empty) {
-				super.updateItem(item, empty);
-				if (empty) {
-					setGraphic(null);
-				} else {
-					SeedReturn r = getTableView().getItems().get(getIndex());
-					setGraphic("Pending".equalsIgnoreCase(r.getStatus()) ? box : new Label("-"));
+				int index = state.productData.indexOf(product); // locate item in observable list
+				if (index >= 0) { // trigger table row refresh
+					state.productData.set(index, product); // replace in-place to fire change event
 				}
+				state.saveProducts(); // save to products.txt
+				editStage.close(); // close edit modal
+				detailStage.close(); // close detail modal
+			} catch (NumberFormatException ex) { // handle exception
+				labelWarn.setText("Error: Price, Stock, and Lot ID must be valid numbers!"); // show numeric parse error
 			}
 		});
 
-		retTable.getColumns().addAll(colRetCode, colRetFarmer, colRetSeed, colRetQty, colRetStatus, colRetAction);
-
-		tableCard.getChildren().addAll(filterBar, reqTable, lblReturnsHeader, retTable);
-		container.getChildren().addAll(topCards, tableCard);
-		return container;
+		VBox vbox = new VBox(14, grid, labelWarn, btnSave); // dialog container
+		vbox.setPadding(new Insets(20)); // outer padding
+		vbox.setStyle("-fx-background-color: #ffffff;"); // white background
+		editStage.setScene(new Scene(vbox, 420, 390)); // set scene size
+		editStage.showAndWait(); // display modal
 	}
-
-	// SLIDE 9: Transaction Details Modal (Reject / Approve)
-	private void openTransactionDetailModal(SeedRequest req) {
-		Stage modal = new Stage();
-		modal.initOwner(state.mainStage);
-		modal.initModality(Modality.APPLICATION_MODAL);
-		modal.initStyle(StageStyle.UTILITY);
-		modal.setTitle(state.t("Transaction Details", "Detalye ng Transaksyon"));
-
-		VBox card = new VBox(16);
-		card.setPadding(new Insets(26));
-		card.setStyle("-fx-background-color: " + state.bgCard() + ";");
-
-		Label lblTitle = new Label(state.t("Transaction Details", "Detalye ng Transaksyon"));
-		lblTitle.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
-
-		Label lblSubId = new Label("Transaction ID: " + req.getTransactionCode() + "   \u2022   Status: " + req.getStatus());
-		lblSubId.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: " + state.textPrimary() + ";");
-
-		GridPane grid = new GridPane();
-		grid.setHgap(18);
-		grid.setVgap(12);
-		ColumnConstraints c1 = new ColumnConstraints();
-		c1.setPercentWidth(50);
-		ColumnConstraints c2 = new ColumnConstraints();
-		c2.setPercentWidth(50);
-		grid.getColumnConstraints().addAll(c1, c2);
-
-		grid.add(state.makeReadOnlyBox(state.t("Farm", "Sakahan"), req.getFarmName()), 0, 0);
-		grid.add(state.makeReadOnlyBox(state.t("Farm Rep.", "Kinatawan"), req.getFarmer()), 1, 0);
-		grid.add(state.makeReadOnlyBox(state.t("Seed Product", "Binhi"), req.getSeedLabel()), 0, 1);
-		grid.add(state.makeReadOnlyBox(state.t("Quantity", "Dami"), req.getQuantityLabel() + " (" + req.getPurpose() + ")"), 1, 1);
-		grid.add(state.makeReadOnlyBox(state.t("Request Date", "Petsa ng Request"),
-				req.getRequestDate() == null ? "-" : req.getRequestDate().format(state.DATE_FMT)), 0, 2);
-		grid.add(state.makeReadOnlyBox(state.t("Seed Value", "Halaga ng Binhi"), "\u20b1" + String.format("%,.2f", req.getTotalValue())), 1, 2);
-		grid.add(state.makeReadOnlyBox(state.t("Due Date", "Due Date"),
-				req.getDueDate() == null ? "-" : req.getDueDate().format(state.DATE_FMT)), 0, 3);
-		grid.add(state.makeReadOnlyBox(state.t("Total Repayment Left", "Natitirang Ibabalik"), req.getQuantityLabel()), 1, 3);
-
-		Label lblWarn = new Label();
-		lblWarn.setStyle("-fx-text-fill: #dc3545; -fx-font-weight: bold;");
-
-		HBox btnRow = new HBox(12);
-		btnRow.setAlignment(Pos.CENTER_RIGHT);
-
-		Button btnClose = new Button(state.t("Close", "Isara"));
-		btnClose.setStyle(state.outlineButtonStyle());
-		btnClose.setOnAction(e -> modal.close());
-
-		Button btnReject = new Button(state.t("Reject", "I-reject"));
-		btnReject.setStyle(state.dangerOutlineButtonStyle());
-		btnReject.setDisable(!"Pending".equalsIgnoreCase(req.getStatus()));
-		btnReject.setOnAction(e -> {
-			req.setStatus("Rejected");
-			modal.close();
-			showAdminShell();
-		});
-
-		Button btnApprove = new Button(state.t("Approve", "I-approve"));
-		btnApprove.setStyle(state.primaryButtonStyle());
-		btnApprove.setDisable(!"Pending".equalsIgnoreCase(req.getStatus()));
-		btnApprove.setOnAction(e -> {
-			Product prod = state.findProduct(req.getLotId());
-			if (prod == null || prod.getAmount() < req.getAmount()) {
-				lblWarn.setText(state.t("Error: Insufficient seed stock in inventory.", "Kulang na ang stock nito sa inventory."));
-				return;
-			}
-			prod.setAmount(state.round2(prod.getAmount() - req.getAmount()));
-			req.setStatus("Approved");
-			if (req.getDueDate() == null) {
-				req.setDueDate(LocalDate.now().plusDays(90));
-			}
-			state.saveProducts(state.productPath, state.productData);
-			modal.close();
-			showAdminShell();
-		});
-
-		btnRow.getChildren().addAll(btnClose, btnReject, btnApprove);
-		card.getChildren().addAll(lblTitle, lblSubId, grid, lblWarn, btnRow);
-
-		modal.setScene(new Scene(card, 640, 470));
-		modal.showAndWait();
-	}
-
-
-
-	// =========================================================================
-	// ADMIN DONATIONS VIEW
-	// =========================================================================
-	private VBox buildAdminDonationsView() {
-		VBox container = new VBox(18);
-		double totalDonations = state.donationData.stream().mapToDouble(Donation::getAmount).sum();
-
-		HBox topCards = new HBox(16);
-		topCards.getChildren().addAll(
-				state.createStatCard(state.t("Total Community Donations", "Kabuuang Donasyon"),
-						"\u20b1" + String.format("%,.2f", totalDonations),
-						state.donationData.size() + state.t(" recorded contributions", " naitalang donasyon"), state.PRIMARY_GREEN));
-
-		VBox card = new VBox(14);
-		card.setStyle(state.cardStyle());
-		VBox.setVgrow(card, Priority.ALWAYS);
-
-		TableView<Donation> table = new TableView<>(state.donationData);
-		table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-		VBox.setVgrow(table, Priority.ALWAYS);
-
-		TableColumn<Donation, String> colDonor = new TableColumn<>(state.t("Donor Name", "Pangalan ng Donor"));
-		colDonor.setCellValueFactory(new PropertyValueFactory<>("donorName"));
-
-		TableColumn<Donation, String> colEmail = new TableColumn<>("Email");
-		colEmail.setCellValueFactory(new PropertyValueFactory<>("email"));
-
-		TableColumn<Donation, String> colAmount = new TableColumn<>(state.t("Amount", "Halaga"));
-		colAmount.setCellValueFactory(c -> new SimpleStringProperty("\u20b1" + String.format("%,.2f", c.getValue().getAmount())));
-
-		TableColumn<Donation, String> colMessage = new TableColumn<>(state.t("Message", "Mensahe"));
-		colMessage.setCellValueFactory(new PropertyValueFactory<>("message"));
-
-		table.getColumns().addAll(colDonor, colEmail, colAmount, colMessage);
-		card.getChildren().add(table);
-
-		container.getChildren().addAll(topCards, card);
-		return container;
-	}
-
-
-	// =========================================================================
-	// SLIDE 5: ADD INVENTORY SLOT MODAL + PRODUCT DETAIL / EDIT DIALOGS
-	// =========================================================================
-	private void openAddInventorySlotModal() {
-		Stage modal = new Stage();
-		modal.initOwner(state.mainStage);
-		modal.initModality(Modality.APPLICATION_MODAL);
-		modal.initStyle(StageStyle.UTILITY);
-		modal.setTitle(state.t("Add Inventory Slot", "Magdagdag ng Seed Lot"));
-
-		VBox card = new VBox(16);
-		card.setPadding(new Insets(26));
-		card.setStyle("-fx-background-color: " + state.bgCard() + ";");
-
-		Label lblTitle = new Label(state.t("Add Inventory Slot", "Magdagdag ng Seed Lot"));
-		lblTitle.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
-
-		GridPane grid = new GridPane();
-		grid.setHgap(18);
-		grid.setVgap(12);
-		ColumnConstraints c1 = new ColumnConstraints();
-		c1.setPercentWidth(50);
-		ColumnConstraints c2 = new ColumnConstraints();
-		c2.setPercentWidth(50);
-		grid.getColumnConstraints().addAll(c1, c2);
-
-		TextField txtProduct = new TextField();
-		txtProduct.setPromptText("e.g. Rice / Pineapple");
-		txtProduct.setStyle(state.inputStyle());
-
-		TextField txtLotId = new TextField();
-		txtLotId.setPromptText("e.g. 4");
-		txtLotId.setStyle(state.inputStyle());
-
-		TextField txtQty = new TextField();
-		txtQty.setPromptText("e.g. 200");
-		txtQty.setStyle(state.inputStyle());
-
-		ComboBox<String> unitBox = new ComboBox<>();
-		unitBox.getItems().addAll("kg", "sacks", "grams");
-		unitBox.setValue("kg");
-		unitBox.setMaxWidth(Double.MAX_VALUE);
-		unitBox.setStyle(state.inputStyle());
-
-		TextField txtLocation = new TextField();
-		txtLocation.setPromptText("e.g. Storage A");
-		txtLocation.setStyle(state.inputStyle());
-
-		TextField txtThreshold = new TextField("25");
-		txtThreshold.setStyle(state.inputStyle());
-
-		TextField txtVariety = new TextField();
-		txtVariety.setPromptText("e.g. NSIC Rc222");
-		txtVariety.setStyle(state.inputStyle());
-
-		TextField txtExpiry = new TextField("2027-12-31");
-		txtExpiry.setStyle(state.inputStyle());
-
-		TextField txtPrice = new TextField("50.0");
-		txtPrice.setStyle(state.inputStyle());
-
-		TextField txtDesc = new TextField();
-		txtDesc.setPromptText(state.t("Seed notes / origin", "Notes o pinagmulan ng binhi"));
-		txtDesc.setStyle(state.inputStyle());
-
-		grid.add(state.wrapField(state.t("Product *", "Pangalan ng Pananim *"), txtProduct), 0, 0);
-		grid.add(state.wrapField(state.t("Lot ID *", "Lot ID *"), txtLotId), 1, 0);
-		grid.add(state.wrapField(state.t("Quantity *", "Dami *"), txtQty), 0, 1);
-		grid.add(state.wrapField(state.t("Unit", "Unit"), unitBox), 1, 1);
-		grid.add(state.wrapField(state.t("Storage Location *", "Lokasyon sa Imbakan *"), txtLocation), 0, 2);
-		grid.add(state.wrapField(state.t("Minimum Threshold", "Minimum Stock Alert"), txtThreshold), 1, 2);
-		grid.add(state.wrapField(state.t("Variety *", "Variety *"), txtVariety), 0, 3);
-		grid.add(state.wrapField(state.t("Expiry Date", "Expiry Date"), txtExpiry), 1, 3);
-		grid.add(state.wrapField(state.t("Price per Unit (\u20b1) *", "Presyo Bawat Unit (\u20b1) *"), txtPrice), 0, 4);
-		grid.add(state.wrapField(state.t("Description *", "Paglalarawan *"), txtDesc), 1, 4);
-
-		Label lblWarn = new Label();
-		lblWarn.setStyle("-fx-text-fill: #dc3545; -fx-font-weight: bold;");
-
-		HBox buttons = new HBox(12);
-		buttons.setAlignment(Pos.CENTER_RIGHT);
-
-		Button btnCancel = new Button(state.t("Cancel", "Kanselahin"));
-		btnCancel.setStyle(state.outlineButtonStyle());
-		btnCancel.setOnAction(e -> modal.close());
-
-		Button btnSave = new Button(state.t("Save Slot", "I-save ang Seed Lot"));
-		btnSave.setStyle(state.primaryButtonStyle());
-		btnSave.setOnAction(e -> {
-			try {
-				String name = txtProduct.getText().trim();
-				int lot = Integer.parseInt(txtLotId.getText().trim());
-				double qty = Double.parseDouble(txtQty.getText().trim());
-				String loc = txtLocation.getText().trim();
-				double thresh = Double.parseDouble(txtThreshold.getText().trim());
-				String var = txtVariety.getText().trim();
-				String exp = txtExpiry.getText().trim();
-				double price = Double.parseDouble(txtPrice.getText().trim());
-				String desc = txtDesc.getText().trim().isEmpty() ? name + " (" + var + ")" : txtDesc.getText().trim();
-
-				if (name.isEmpty() || loc.isEmpty() || var.isEmpty()) {
-					lblWarn.setText(state.t("Error: Fill in all required fields (*).", "Oops! Paki-fill up lahat ng required fields (*)."));
-					return;
-				}
-				state.productData.add(new Product(name, price, qty, lot, loc, var, desc, unitBox.getValue(), thresh, exp));
-				modal.close();
-				showAdminShell();
-			} catch (NumberFormatException ex) {
-				lblWarn.setText(state.t("Error: Lot ID, Quantity, Threshold, and Price must be numeric.", "Oops! Dapat number ang Lot ID, Dami, Threshold, at Presyo."));
-			}
-		});
-
-		buttons.getChildren().addAll(btnCancel, btnSave);
-		card.getChildren().addAll(lblTitle, grid, lblWarn, buttons);
-
-		modal.setScene(new Scene(card, 640, 520));
-		modal.showAndWait();
-	}
-
-	private void openProductDetailDialog(Product product) {
-		Stage detailStage = new Stage();
-		detailStage.initOwner(state.mainStage);
-		detailStage.initModality(Modality.APPLICATION_MODAL);
-		detailStage.setTitle(state.t("Product Details", "Detalye ng Binhi"));
-
-		VBox vbox = new VBox(10);
-		vbox.setPadding(new Insets(22));
-		vbox.setStyle("-fx-background-color: " + state.bgCard() + ";");
-
-		Label title = new Label(product.getLotCode() + " \u2014 " + product.getName());
-		title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
-
-		Button btnEdit = new Button(state.t("Edit", "I-edit"));
-		btnEdit.setStyle(state.primaryButtonStyle());
-		btnEdit.setOnAction(e -> openEditProductDialog(product, detailStage));
-
-		Button btnDelete = new Button(state.t("Delete", "I-delete"));
-		btnDelete.setStyle(state.dangerOutlineButtonStyle());
-		btnDelete.setOnAction(e -> {
-			state.productData.remove(product);
-			detailStage.close();
-			showAdminShell();
-		});
-
-		Button btnClose = new Button(state.t("Close", "Isara"));
-		btnClose.setStyle(state.outlineButtonStyle());
-		btnClose.setOnAction(e -> detailStage.close());
-
-		HBox btns = new HBox(10, btnClose, btnDelete, btnEdit);
-		btns.setAlignment(Pos.CENTER_RIGHT);
-
-		vbox.getChildren().addAll(
-				title,
-				state.makeDetailLine("Variety:", product.getVariety()),
-				state.makeDetailLine("Location:", product.getLocation()),
-				state.makeDetailLine("Amount:", product.getQuantityLabel()),
-				state.makeDetailLine("Price:", "\u20b1" + product.getPrice()),
-				state.makeDetailLine("Min Threshold:", product.getMinThreshold() + " " + product.getUnit()),
-				state.makeDetailLine("Expiry:", product.getExpiryDate()),
-				state.makeDetailLine("Description:", product.getDescription()),
-				btns);
-
-		detailStage.setScene(new Scene(vbox, 420, 340));
-		detailStage.showAndWait();
-	}
-
-	private void openEditProductDialog(Product product, Stage detailStage) {
-		Stage editStage = new Stage();
-		editStage.initOwner(detailStage);
-		editStage.initModality(Modality.APPLICATION_MODAL);
-		editStage.setTitle(state.t("Edit Product", "I-edit ang Binhi"));
-
-		TextField textName = new TextField(product.getName());
-		textName.setStyle(state.inputStyle());
-		TextField textPrice = new TextField(String.valueOf(product.getPrice()));
-		textPrice.setStyle(state.inputStyle());
-		TextField textAmount = new TextField(String.valueOf(product.getAmount()));
-		textAmount.setStyle(state.inputStyle());
-		TextField textLotID = new TextField(String.valueOf(product.getLotID()));
-		textLotID.setStyle(state.inputStyle());
-		TextField textLocation = new TextField(product.getLocation());
-		textLocation.setStyle(state.inputStyle());
-		TextField textVariety = new TextField(product.getVariety());
-		textVariety.setStyle(state.inputStyle());
-		TextField textDescription = new TextField(product.getDescription());
-		textDescription.setStyle(state.inputStyle());
-
-		Label labelWarn = new Label();
-		labelWarn.setStyle("-fx-text-fill: #dc3545; -fx-font-weight: bold;");
-
-		Button btnSave = new Button(state.t("Save Changes", "I-save ang Pagbabago"));
-		btnSave.setStyle(state.primaryButtonStyle());
-		btnSave.setOnAction(e -> {
-			try {
-				product.setName(textName.getText().trim());
-				product.setPrice(Double.parseDouble(textPrice.getText().trim()));
-				product.setAmount(Double.parseDouble(textAmount.getText().trim()));
-				product.setLotID(Integer.parseInt(textLotID.getText().trim()));
-				product.setLocation(textLocation.getText().trim());
-				product.setVariety(textVariety.getText().trim());
-				product.setDescription(textDescription.getText().trim());
-
-				int idx = state.productData.indexOf(product);
-				if (idx >= 0) state.productData.set(idx, product);
-
-				editStage.close();
-				detailStage.close();
-				showAdminShell();
-			} catch (NumberFormatException ex) {
-				labelWarn.setText("Error: Invalid numeric values.");
-			}
-		});
-
-		VBox vbox = new VBox(8,
-				state.wrapField("Name", textName),
-				state.wrapField("Price", textPrice),
-				state.wrapField("Amount", textAmount),
-				state.wrapField("Lot ID", textLotID),
-				state.wrapField("Location", textLocation),
-				state.wrapField("Variety", textVariety),
-				state.wrapField("Description", textDescription),
-				labelWarn, btnSave);
-		vbox.setPadding(new Insets(18));
-		vbox.setStyle("-fx-background-color: " + state.bgCard() + ";");
-
-		editStage.setScene(new Scene(vbox, 420, 520));
-		editStage.showAndWait();
-	}
-
 }

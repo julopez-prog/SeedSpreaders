@@ -1,756 +1,596 @@
-package application.shared;
+package application.shared; // shared state and ui helpers package
 
-import application.Donation;
-import application.Product;
-import application.SeedRequest;
-import application.SeedReturn;
-import application.User;
-import javafx.collections.FXCollections;
-import javafx.collections.ListChangeListener;
-import javafx.collections.ObservableList;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Node;
-import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TableCell;
-import javafx.scene.control.TextField;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Circle;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.stage.StageStyle;
+import application.Donation; // donation entity model
+import application.Product; // seed inventory entity model
+import application.SeedRequest; // seed request entity model
+import application.SeedReturn; // seed return entity model
+import application.User; // user account entity model
+import javafx.collections.FXCollections; // observable list factory
+import javafx.collections.ListChangeListener; // listener for automatic metric refresh
+import javafx.collections.ObservableList; // reactive list backing tables
+import javafx.geometry.Insets; // padding helper
+import javafx.geometry.Pos; // alignment helper
+import javafx.scene.Node; // base javafx scene node
+import javafx.scene.Scene; // modal scene container
+import javafx.scene.control.Button; // button control
+import javafx.scene.control.Label; // text label control
+import javafx.scene.control.TableCell; // custom table cell for status pills
+import javafx.scene.control.TableColumn; // table column definition
+import javafx.scene.control.TableView; // table view reference
+import javafx.scene.image.Image; // image loader
+import javafx.scene.image.ImageView; // image renderer
+import javafx.scene.layout.HBox; // horizontal box container
+import javafx.scene.layout.VBox; // vertical box container
+import javafx.stage.Modality; // modal window behavior
+import javafx.stage.Stage; // stage window
+import javafx.stage.StageStyle; // stage border style
+import javafx.util.Callback; // cell factory callback
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.IOException; // file io exception
+import java.io.PrintWriter; // text file writer
+import java.net.URL; // resource url resolver
+import java.nio.file.Files; // file existence and reading helpers
+import java.nio.file.Path; // file path abstraction
+import java.nio.file.Paths; // path constructor
+import java.time.LocalDate; // date utilities for due dates
+import java.util.ArrayList; // resizable list for serialization
+import java.util.List; // list interface
 
-public class AppState {
+// holds shared application data, persistence methods, and reusable ui helpers
+public class AppState { // declare appstate class
 
-	// =========================================================================
-	// LOGO IMAGE PLACEHOLDERS (ADD PNG IMAGES IN ECLIPSE & PASTE PATH/LINK HERE)
-	// =========================================================================
-	// Option A (Recommended in Eclipse): Drag & drop your PNG files directly into
-	//   src/application/ and keep "/application/<filename>.png" below.
-	// Option B (Local file link): Paste a full file path or file:/// URI, e.g.:
-	//   "C:/Users/YourName/Pictures/logo_white.png"
-	public static final String LOGO_ICON_PATH = "/application/assets/seed-spreaders-icon.png";
-	public static final String LOGO_HERO_PATH = "/application/assets/seed-spreaders-hero.png";
+	public static final double MAX_LOAN_VALUE_PHP = 10000.0; // max php seed loan per farm
+	public static final String LOGO_ICON_PATH = "/application/assets/seed-spreaders-icon.png"; // green icon for light headers
+	public static final String LOGO_HERO_PATH = "/application/assets/seed-spreaders-hero.png"; // white mark for dark backgrounds
 
-	public Stage mainStage;
-	public User currentUser;
+	public static final String FOREST_DARK = "#0c3026"; // dark forest sidebar and hero background
+	public static final String PRIMARY_GREEN = "#17684d"; // primary brand button green
+	public static final String SAGE_ACCENT = "#77a589"; // muted sage subtitle accent
+	public static final String BG_PAGE = "#f6f8f3"; // warm off-white page background
+	public static final String BORDER_COLOR = "#dce4de"; // subtle border gray-green
+	public static final String TEXT_DARK = "#18241e"; // primary dark text color
+	public static final String TEXT_MUTED = "#5a6e64"; // secondary muted text color
 
-	public ObservableList<Product> productData;
-	public ObservableList<SeedRequest> requestData = FXCollections.observableArrayList();
-	public ObservableList<SeedReturn> returnData = FXCollections.observableArrayList();
-	public ObservableList<Donation> donationData = FXCollections.observableArrayList();
-	public ObservableList<User> users = FXCollections.observableArrayList();
+	public Stage mainStage; // reference to primary application stage
+	public User currentUser; // currently logged-in user or null when logged out
 
-	public final Path productPath = Paths.get("products.txt");
-	public final Path donationPath = Paths.get("donations.txt");
-	public final Path userPath = Paths.get("users.txt");
+	public ObservableList<User> users = FXCollections.observableArrayList(); // all registered admin and farmer accounts
+	public ObservableList<Product> productData = FXCollections.observableArrayList(); // all seed lots in inventory
+	public ObservableList<SeedRequest> requestData = FXCollections.observableArrayList(); // all seed loan requests
+	public ObservableList<SeedReturn> returnData = FXCollections.observableArrayList(); // all harvest seed returns
+	public ObservableList<Donation> donationData = FXCollections.observableArrayList(); // all community donations
 
-	public int nextRequestId = 1;
-	public int nextReturnId = 1;
-	public int nextUserId = 1;
+	public final Path userPath = Paths.get("users.txt"); // flat file storing user accounts
+	public final Path productPath = Paths.get("products.txt"); // flat file storing seed inventory
+	public final Path requestPath = Paths.get("requests.txt"); // flat file storing seed requests
+	public final Path returnPath = Paths.get("returns.txt"); // flat file storing seed returns
+	public final Path donationPath = Paths.get("donations.txt"); // flat file storing donations
 
-	public boolean darkMode = false;
-	public boolean tagalog = false;
-	public String currentRoute = "Dashboard";
+	public TableView<Product> inventoryTable; // active inventory table reference for live refresh
+	public int nextRequestId = 1; // auto-increment counter for request ids
+	public int nextReturnId = 1; // auto-increment counter for return ids
 
-	public static final String FOREST_DARK = "#0c3026";
-	public static final String HERO_CARD_BG = "#163a2c";
-	public static final String PRIMARY_GREEN = "#1e6349";
-	public static final String PRIMARY_GREEN_HOVER = "#164e39";
-	public static final String LIME_ACCENT = "#c8e27c";
-	public static final String SAGE_ACCENT = "#5b9e6c";
+	public Label lblVarieties = new Label("0"); // live variety count label
+	public Label lblStocks = new Label("0.0 kg"); // live total stock weight label
+	public Label lblLots = new Label("0"); // live lot count label
+	public Label lblDonationTotal = new Label("Total Donations: \u20b10.00"); // live donation total label
 
-	public static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("MMMM d, yyyy");
+	private Image cachedIconImage; // cached green seedling icon
+	private Image cachedHeroImage; // cached white hero logo mark
 
-	private Image cachedIconImg;
-	private Image cachedHeroImg;
-
-	public void initialize(Stage stage) {
-		this.mainStage = stage;
-
-		users = loadUsers(userPath);
-		productData = loadProducts(productPath);
-		donationData = loadDonations(donationPath);
-
-		if (productData.isEmpty()) {
-			productData.addAll(
-					new Product("Pineapple", 120.0, 200.0, 1, "Storage A", "Pineapple",
-							"Sweet Queen pineapple crowns for upland Laguna farms.", "kg", 30.0, "2027-08-15"),
-					new Product("Rice", 55.0, 350.0, 2, "Storage B", "NSIC Rc222",
-							"High-yielding irrigated lowland rice variety.", "kg", 50.0, "2027-05-20"),
-					new Product("Corn", 48.0, 180.0, 3, "Storage A", "IPB Var 6",
-							"Open-pollinated white flint corn developed at UPLB.", "kg", 25.0, "2027-06-30"));
-			saveProducts(productPath, productData);
+	// initialize state, load files, and attach live listeners
+	public void initialize(Stage stage) { // define initialize method
+		this.mainStage = stage; // store primary stage reference
+		users = loadUsers(userPath); // load accounts from users.txt
+		if (users.isEmpty()) { // seed default accounts if first run
+			seedDefaultUsers(); // populate default admin and farmers
+			saveUsers(); // persist default accounts to disk
 		}
 
-		seedInitialTransactionsIfEmpty();
-
-		productData.addListener((ListChangeListener.Change<? extends Product> c) -> {
-			saveProducts(productPath, productData);
-		});
-		donationData.addListener((ListChangeListener.Change<? extends Donation> c) -> {
-			saveDonations(donationPath, donationData);
-		});
-	}
-
-	public void seedInitialTransactionsIfEmpty() {
-		if (requestData.isEmpty()) {
-			requestData.add(new SeedRequest(nextRequestId++, "juan", "Dela Cruz Farm", 2,
-					"Rice", "NSIC Rc222", 100.0, 55.0, "Wet season planting", "Approved",
-					LocalDate.now().minusDays(20), LocalDate.now().plusDays(14)));
-			requestData.add(new SeedRequest(nextRequestId++, "maria", "Santos Agri-Farm", 3,
-					"Corn", "IPB Var 6", 60.0, 48.0, "Intercropping trial", "Approved",
-					LocalDate.now().minusDays(105), LocalDate.now().minusDays(5)));
-			requestData.add(new SeedRequest(nextRequestId++, "juan", "Dela Cruz Farm", 1,
-					"Pineapple", "Pineapple", 50.0, 120.0, "Orchard expansion", "Pending",
-					LocalDate.now(), LocalDate.now().plusDays(90)));
+		productData = loadProducts(productPath); // load inventory from products.txt
+		if (productData.isEmpty()) { // seed laguna crop catalog if first run
+			seedDefaultProducts(); // populate okra, tomato, squash, pineapple, and rice seeds
+			saveProducts(); // persist default products to disk
 		}
-		if (returnData.isEmpty()) {
-			returnData.add(new SeedReturn(nextReturnId++, 1, "juan", 2,
-					"Rice - NSIC Rc222", 50.0, "Pending", LocalDate.now()));
-		}
-	}
 
-	// =========================================================================
-	// LOGO IMAGE LOADER & PLACEHOLDER BUILDER
-	// =========================================================================
-	public Image loadLogoImage(String pathOrLink) {
-		if (pathOrLink == null || pathOrLink.trim().isEmpty()) return null;
-		String trimmed = pathOrLink.trim();
-		try {
-			URL resUrl = AppState.class.getResource(trimmed.startsWith("/") ? trimmed : "/application/" + trimmed);
-			if (resUrl != null) {
-				Image img = new Image(resUrl.toExternalForm());
-				if (!img.isError()) return img;
+		requestData = loadRequests(requestPath); // load seed requests from requests.txt
+		returnData = loadReturns(returnPath); // load seed returns from returns.txt
+		if (requestData.isEmpty() && returnData.isEmpty()) { // seed sample transactions if first run
+			seedDefaultTransactions(); // create sample active, overdue, and pending records
+			saveRequests(); // persist sample requests
+			saveReturns(); // persist sample returns
+		}
+
+		for (SeedRequest r : requestData) { // compute next available request id
+			if (r.getRequestId() >= nextRequestId) { // check highest existing id
+				nextRequestId = r.getRequestId() + 1; // advance counter past existing id
 			}
-		} catch (Exception ignored) {
 		}
-		try {
-			if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("file:")) {
-				Image img = new Image(trimmed);
-				if (!img.isError()) return img;
+		for (SeedReturn r : returnData) { // compute next available return id
+			if (r.getReturnId() >= nextReturnId) { // check highest existing id
+				nextReturnId = r.getReturnId() + 1; // advance counter past existing id
 			}
-			File localFile = new File(trimmed);
-			if (localFile.exists()) {
-				Image img = new Image(localFile.toURI().toString());
-				if (!img.isError()) return img;
+		}
+
+		donationData = loadDonations(donationPath); // load donations from donations.txt
+		if (donationData.isEmpty()) { // seed sample community donation if empty
+			donationData.add(new Donation("Elena Santos", "elena.santos@email.ph", 1500.00, "Para sa mga magsasaka ng Laguna!")); // sample donation entry
+			saveDonations(); // persist sample donation
+		}
+
+		productData.addListener((ListChangeListener.Change<? extends Product> c) -> updateSummaryMetrics()); // refresh metrics when inventory changes
+		donationData.addListener((ListChangeListener.Change<? extends Donation> c) -> updateDonationTotal()); // refresh total when donations change
+		updateSummaryMetrics(); // compute initial inventory totals
+		updateDonationTotal(); // compute initial donation total
+	}
+
+	// populate initial admin and farmer accounts
+	private void seedDefaultUsers() { // define seeddefaultusers helper
+		users.add(new User("USR-001", "admin", "admin123", "Admin", "Seed Bank Administrator", "09171234567", "admin@seedspreaders.ph", "Laguna Central Seed Vault", "Los Banos, Laguna", "RSBSA-04-34-0001", 0.0, true, false, "")); // default admin account
+		users.add(new User("USR-002", "juan", "farmer123", "Farmer", "Juan Dela Cruz", "09182345678", "juan.delacruz@farm.ph", "Dela Cruz Family Farm", "Brgy. San Antonio, Los Banos, Laguna", "RSBSA-04-34-1042", 2.5, true, false, "")); // verified farmer account
+		users.add(new User("USR-003", "maria", "farmer123", "Farmer", "Maria Clara Reyes", "09193456789", "maria.reyes@farm.ph", "Reyes Upland Harvest", "Brgy. Timugan, Los Banos, Laguna", "RSBSA-04-34-1088", 1.8, true, false, "")); // verified farmer account
+		users.add(new User("USR-004", "pedro", "farmer123", "Farmer", "Pedro Penduko", "09204567890", "pedro.penduko@farm.ph", "Penduko Agri Lot", "Brgy. Mayondon, Los Banos, Laguna", "RSBSA-04-34-1105", 1.2, true, true, "Unsettled seed loan from previous harvest cycle.")); // suspended farmer example
+	}
+
+	// populate initial seed lots modeled after laguna agricultural commodities
+	private void seedDefaultProducts() { // define seeddefaultproducts helper
+		productData.add(new Product("Okra Seeds", 320.00, 45.0, 101, "Vault A - Bin 1", "Abelmoschus esculentus (Smooth Green)", "Top-ranked Laguna vegetable crop; fast-maturing edible pods rich in fiber and vitamins.")); // okra lot
+		productData.add(new Product("Tomato Seeds", 450.00, 38.0, 102, "Vault A - Bin 2", "Solanum lycopersicum (Diamante Max)", "High-demand Laguna commercial tomato variety suitable for fresh markets and sauces.")); // tomato lot
+		productData.add(new Product("Squash Seeds", 280.00, 52.0, 103, "Vault A - Bin 3", "Cucurbita moschata (Suprema Kalabasa)", "Nutrient-dense Laguna squash variety rich in beta-carotene for household and market sales.")); // squash lot
+		productData.add(new Product("Pineapple Planting Slips", 150.00, 120.0, 104, "Nursery Bay B1", "Ananas comosus (Queen Formosa)", "Vegetative slips and crowns cultivated across Laguna for fresh fruit and processing.")); // pineapple lot
+		productData.add(new Product("Rice Seeds", 65.00, 250.0, 105, "Silo C - Bay 1", "Oryza sativa (NSIC Rc 222)", "Certified inbred palay seeds supporting Laguna staple rice production.")); // rice lot
+	}
+
+	// populate sample requests and returns so dashboards show realistic states
+	private void seedDefaultTransactions() { // define seeddefaulttransactions helper
+		String today = LocalDate.now().toString(); // current date string
+		String pastDue = LocalDate.now().minusDays(6).toString(); // 6 days overdue date
+		String upcomingDue = LocalDate.now().plusDays(10).toString(); // upcoming return deadline
+		requestData.add(new SeedRequest(1, "juan", 101, "Okra Seeds", "Abelmoschus esculentus (Smooth Green)", 5.0, 1600.00, "Dry season backyard plot planting", "Approved", LocalDate.now().minusDays(40).toString(), pastDue)); // overdue active loan for juan
+		requestData.add(new SeedRequest(2, "maria", 105, "Rice Seeds", "Oryza sativa (NSIC Rc 222)", 40.0, 2600.00, "Main wet-season paddy replanting", "Approved", LocalDate.now().minusDays(20).toString(), upcomingDue)); // active loan for maria
+		requestData.add(new SeedRequest(3, "juan", 102, "Tomato Seeds", "Solanum lycopersicum (Diamante Max)", 3.0, 1350.00, "Market garden expansion", "Pending", today, "")); // pending request for admin review
+		returnData.add(new SeedReturn(1, 2, "maria", 105, "Rice Seeds - Oryza sativa (NSIC Rc 222)", 42.0, "Pending", today)); // pending harvest return with seed interest
+	}
+
+	// load an image resource from classpath safely
+	public Image loadImage(String resourcePath) { // define loadimage method
+		try { // attempt risky block
+			URL url = AppState.class.getResource(resourcePath); // locate image inside classpath
+			if (url != null) { // check that resource exists
+				return new Image(url.toExternalForm()); // load javafx image
 			}
-		} catch (Exception ignored) {
+		} catch (Exception e) { // handle exception
+			System.err.println("Could not load image: " + resourcePath); // log missing image path
 		}
-		return null;
+		return null; // return null if resource was missing
 	}
 
-	public Node buildLogo(double scale, boolean darkBackground) {
-		Image img = darkBackground ? getHeroImage() : getIconImage();
-		HBox lockup = new HBox(10 * scale);
-		lockup.setAlignment(Pos.CENTER_LEFT);
-
-		if (img != null) {
-			ImageView view = new ImageView(img);
-			view.setFitHeight(46 * scale);
-			view.setPreserveRatio(true);
-			view.setSmooth(true);
-			view.setCache(true);
-			lockup.getChildren().add(view);
+	// build the brand logo lockup using the real png assets
+	public Node buildLogo(double scale, boolean darkBackground) { // define buildlogo method
+		if (cachedIconImage == null) { // lazy-load green seedling icon once
+			cachedIconImage = loadImage(LOGO_ICON_PATH); // load green icon png
+		}
+		if (cachedHeroImage == null) { // lazy-load white logo mark once
+			cachedHeroImage = loadImage(LOGO_HERO_PATH); // load white mark png
 		}
 
-		Label lblBrand = new Label("Seed Spreaders.");
-		lblBrand.setFont(Font.font("System", FontWeight.BOLD, 18 * scale));
-		lblBrand.setStyle("-fx-text-fill: " + (darkBackground ? "#ffffff" : FOREST_DARK) + ";");
+		Image chosen = darkBackground ? cachedHeroImage : cachedIconImage; // choose white mark on dark green or green icon on light surface
+		HBox lockup = new HBox(10 * scale); // horizontal container for icon and brand text
+		lockup.setAlignment(Pos.CENTER_LEFT); // vertically center icon and text
 
-		Label lblSub = new Label("SEED BANK SYSTEM");
-		lblSub.setFont(Font.font("System", FontWeight.BOLD, 8.5 * scale));
-		lblSub.setStyle("-fx-text-fill: " + (darkBackground ? "#8ec9a4" : SAGE_ACCENT) + ";");
-
-		VBox words = new VBox(1 * scale, lblBrand, lblSub);
-		words.setAlignment(Pos.CENTER_LEFT);
-		lockup.getChildren().add(words);
-		return lockup;
-	}
-
-	public Node buildHeroLogoMark(double height) {
-		Image img = getHeroImage();
-		if (img != null) {
-			ImageView view = new ImageView(img);
-			view.setFitHeight(height);
-			view.setPreserveRatio(true);
-			view.setSmooth(true);
-			view.setCache(true);
-			return view;
+		if (chosen != null) { // attach image view when png loaded cleanly
+			ImageView view = new ImageView(chosen); // create image view
+			view.setFitHeight(44 * scale); // scale logo height proportionally
+			view.setPreserveRatio(true); // keep original aspect ratio
+			view.setSmooth(true); // enable smooth scaling
+			lockup.getChildren().add(view); // add logo graphic to lockup
 		}
 
-		StackPane heroPlaceholder = new StackPane();
-		heroPlaceholder.setPrefSize(height, height);
-		heroPlaceholder.setStyle("-fx-border-color: rgba(255,255,255,0.35); -fx-border-style: dashed; -fx-border-radius: 24;");
-		Label lblHint = new Label("Seed Spreaders.");
-		lblHint.setStyle("-fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-font-size: 16px;");
-		heroPlaceholder.getChildren().add(lblHint);
-		return heroPlaceholder;
+		Label lblBrand = new Label("Seed Spreaders."); // main organization title
+		lblBrand.setStyle("-fx-font-size: " + Math.round(18 * scale) + "px; -fx-font-weight: bold; -fx-text-fill: " + (darkBackground ? "#ffffff" : FOREST_DARK) + ";"); // white on dark background, forest green on light
+
+		Label lblSub = new Label("SEED BANK SYSTEM"); // uppercase system subtitle
+		lblSub.setStyle("-fx-font-size: " + Math.max(8, Math.round(9 * scale)) + "px; -fx-font-weight: bold; -fx-text-fill: " + (darkBackground ? "#8ec9a4" : "#6d8379") + ";"); // sage green subtitle
+
+		VBox textStack = new VBox(1 * scale, lblBrand, lblSub); // stack title and subtitle
+		textStack.setAlignment(Pos.CENTER_LEFT); // align text left
+		lockup.getChildren().add(textStack); // add text stack beside icon
+		return lockup; // return complete logo lockup
 	}
 
-	private Image getIconImage() {
-		if (cachedIconImg == null) cachedIconImg = loadLogoImage(LOGO_ICON_PATH);
-		return cachedIconImg;
-	}
-
-	private Image getHeroImage() {
-		if (cachedHeroImg == null) cachedHeroImg = loadLogoImage(LOGO_HERO_PATH);
-		return cachedHeroImg;
-	}
-
-	// =========================================================================
-	// THEME & BILINGUAL HELPERS
-	// =========================================================================
-	public String bgPage() {
-		return darkMode ? "#111916" : "#f5f7f2";
-	}
-
-	public String bgCard() {
-		return darkMode ? "#1a2621" : "#ffffff";
-	}
-
-	public String bgHeaderBar() {
-		return darkMode ? "#15201c" : "#ffffff";
-	}
-
-	public String bgTableHeader() {
-		return darkMode ? "#22312b" : "#f0f2ec";
-	}
-
-	public String borderColor() {
-		return darkMode ? "#2c3f37" : "#e2e6dc";
-	}
-
-	public String textPrimary() {
-		return darkMode ? "#eef3ef" : "#111815";
-	}
-
-	public String textMuted() {
-		return darkMode ? "#9cb0a6" : "#66736c";
-	}
-
-	public String inputStyle() {
-		return "-fx-background-color: " + (darkMode ? "#131d19" : "#ffffff") + ";"
-				+ "-fx-text-fill: " + textPrimary() + ";"
-				+ "-fx-prompt-text-fill: " + textMuted() + ";"
-				+ "-fx-border-color: " + borderColor() + ";"
-				+ "-fx-border-radius: 8;"
-				+ "-fx-background-radius: 8;"
-				+ "-fx-padding: 9 12 9 12;"
-				+ "-fx-font-size: 13px;";
-	}
-
-	public String primaryButtonStyle() {
-		return "-fx-background-color: " + PRIMARY_GREEN + ";"
-				+ "-fx-text-fill: #ffffff;"
-				+ "-fx-font-weight: bold;"
-				+ "-fx-font-size: 13px;"
-				+ "-fx-background-radius: 10;"
-				+ "-fx-padding: 10 20 10 20;"
-				+ "-fx-cursor: hand;";
-	}
-
-	public String outlineButtonStyle() {
-		return "-fx-background-color: " + bgCard() + ";"
-				+ "-fx-text-fill: " + (darkMode ? "#cde3d8" : PRIMARY_GREEN) + ";"
-				+ "-fx-border-color: " + borderColor() + ";"
-				+ "-fx-border-radius: 10;"
-				+ "-fx-background-radius: 10;"
-				+ "-fx-font-weight: bold;"
-				+ "-fx-font-size: 13px;"
-				+ "-fx-padding: 9 18 9 18;"
-				+ "-fx-cursor: hand;";
-	}
-
-	public String dangerOutlineButtonStyle() {
-		return "-fx-background-color: " + bgCard() + ";"
-				+ "-fx-text-fill: #dc3545;"
-				+ "-fx-border-color: " + borderColor() + ";"
-				+ "-fx-border-radius: 10;"
-				+ "-fx-background-radius: 10;"
-				+ "-fx-font-weight: bold;"
-				+ "-fx-font-size: 13px;"
-				+ "-fx-padding: 9 18 9 18;"
-				+ "-fx-cursor: hand;";
-	}
-
-	public String cardStyle() {
-		return "-fx-background-color: " + bgCard() + ";"
-				+ "-fx-border-color: " + borderColor() + ";"
-				+ "-fx-border-radius: 16;"
-				+ "-fx-background-radius: 16;"
-				+ "-fx-padding: 20;";
-	}
-
-	public String t(String en, String tl) {
-		return tagalog ? tl : en;
-	}
-
-	public void applyScene(Scene scene, String title) {
-		scene.getStylesheets().clear();
-		String tableCss = "data:text/css,"
-				+ ".table-view { -fx-background-color: transparent; -fx-border-color: transparent; }"
-				+ ".table-view .column-header-background { -fx-background-color: " + bgTableHeader() + "; -fx-background-radius: 8; }"
-				+ ".table-view .column-header { -fx-background-color: transparent; -fx-size: 40px; }"
-				+ ".table-view .column-header .label { -fx-text-fill: " + textPrimary() + "; -fx-font-weight: bold; -fx-font-size: 12px; }"
-				+ ".table-view .table-row-cell { -fx-background-color: " + bgCard() + "; -fx-border-color: transparent transparent " + borderColor() + " transparent; -fx-cell-size: 46px; }"
-				+ ".table-view .table-row-cell:selected { -fx-background-color: " + (darkMode ? "#253b32" : "#e8f2ec") + "; }"
-				+ ".table-view .table-cell { -fx-text-fill: " + textPrimary() + "; -fx-alignment: CENTER-LEFT; -fx-font-size: 13px; }"
-				+ ".scroll-pane { -fx-background-color: transparent; -fx-background: transparent; }"
-				+ ".scroll-pane > .viewport { -fx-background-color: transparent; }";
-		scene.getStylesheets().add(tableCss);
-		mainStage.setScene(scene);
-		mainStage.setTitle(title);
-		mainStage.setResizable(true);
-		mainStage.setMinWidth(960);
-		mainStage.setMinHeight(640);
-	}
-
-	// =========================================================================
-	// SHARED SHELL NAVIGATION & TOP HEADER HELPERS
-	// =========================================================================
-	public Button createNavButton(Runnable refreshShell, String label, String routeKey, boolean isAdmin) {
-		boolean active = currentRoute.equals(routeKey);
-		Button btn = new Button("  " + getNavIcon(routeKey) + "   " + label);
-		btn.setMaxWidth(Double.MAX_VALUE);
-		btn.setAlignment(Pos.CENTER_LEFT);
-		btn.setStyle("-fx-background-color: " + (active ? PRIMARY_GREEN : "transparent") + ";"
-				+ "-fx-text-fill: #ffffff;"
-				+ "-fx-font-size: 14px;"
-				+ "-fx-font-weight: " + (active ? "bold" : "normal") + ";"
-				+ "-fx-background-radius: 12;"
-				+ "-fx-padding: 13 16 13 16;"
-				+ "-fx-cursor: hand;");
-		btn.setOnAction(e -> {
-			currentRoute = routeKey;
-			refreshShell.run();
-		});
-		return btn;
-	}
-
-	public String getNavIcon(String route) {
-		switch (route) {
-			case "Dashboard":
-				return "\u229e";
-			case "Inventory":
-				return "\u2b21";
-			case "Farmers":
-				return "\u2687";
-			case "Requests":
-				return "\ud83c\udf31";
-			case "Transactions":
-				return "\u25a4";
-			case "Donations":
-				return "\u2665";
-			default:
-				return "\u2022";
+	// find a seed product lot by its numeric lot id
+	public Product findProduct(int lotId) { // define findproduct method
+		for (Product product : productData) { // loop through inventory lots
+			if (product.getLotID() == lotId) { // check matching lot id
+				return product; // return matching lot
+			}
 		}
+		return null; // return null if lot id not found
 	}
 
-	public String getAdminPageTitle() {
-		switch (currentRoute) {
-			case "Inventory":
-				return t("Inventory", "Imbentaryo");
-			case "Farmers":
-				return t("User Management", "Pamamahala ng Users");
-			case "Transactions":
-				return t("Transactions", "Mga Transaksyon");
-			case "Donations":
-				return t("Donations", "Mga Donasyon");
-			default:
-				return t("Dashboard", "Dashboard");
+	// find a user account by username (case-insensitive)
+	public User findUserByUsername(String username) { // define finduserbyusername method
+		for (User u : users) { // loop through registered users
+			if (u.getUsername().equalsIgnoreCase(username)) { // compare username ignoring case
+				return u; // return matching user
+			}
 		}
+		return null; // return null if not found
 	}
 
-	public String getFarmerPageTitle() {
-		switch (currentRoute) {
-			case "Requests":
-				return t("Requests", "Humiram ng Binhi");
-			case "Transactions":
-				return t("Transactions", "Mga Transaksyon");
-			default:
-				return t("Dashboard", "Dashboard");
-		}
-	}
-
-	public HBox buildTopHeader(String pageTitle, boolean isAdmin, Runnable refreshShell) {
-		HBox header = new HBox(12);
-		header.setAlignment(Pos.CENTER_LEFT);
-
-		Label lblTitle = new Label(pageTitle);
-		lblTitle.setStyle("-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: " + textPrimary() + ";");
-
-		Region spacer = new Region();
-		HBox.setHgrow(spacer, Priority.ALWAYS);
-
-		// Contextual help for the current tab
-		Button btnHelp = new Button("? Help");
-		btnHelp.setStyle(outlineButtonStyle());
-		btnHelp.setOnAction(e -> showTabHelpDialog(currentRoute, isAdmin));
-
-		// User avatar with initials
-		StackPane avatar = new StackPane();
-		Circle circle = new Circle(20, Color.web("#bc9d9d"));
-		String initials = currentUser.getUsername().substring(0, Math.min(2, currentUser.getUsername().length())).toUpperCase();
-		Label lblInit = new Label(initials);
-		lblInit.setStyle("-fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-font-size: 12px;");
-		avatar.getChildren().addAll(circle, lblInit);
-
-		header.getChildren().addAll(lblTitle, spacer, btnHelp, avatar);
-		return header;
-	}
-
-	public VBox createStatCard(String title, String value, String subtitle, String accentColor) {
-		VBox card = new VBox(8);
-		card.setStyle(cardStyle());
-		HBox.setHgrow(card, Priority.ALWAYS);
-		card.setPrefWidth(220);
-
-		Label lblTitle = new Label(title);
-		lblTitle.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: " + textPrimary() + ";");
-
-		Label lblVal = new Label(value);
-		lblVal.setStyle("-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: " + accentColor + ";");
-
-		Label lblSub = new Label(subtitle);
-		lblSub.setStyle("-fx-font-size: 11px; -fx-text-fill: " + textMuted() + ";");
-
-		card.getChildren().addAll(lblTitle, lblVal, lblSub);
-		return card;
-	}
-
-	public HBox createAlertRow(String badgeText, String detail, String bgHex, String fgHex) {
-		HBox row = new HBox(10);
-		row.setAlignment(Pos.CENTER_LEFT);
-		row.setPadding(new Insets(10, 12, 10, 12));
-		row.setStyle("-fx-background-color: " + bgPage() + "; -fx-background-radius: 10;");
-
-		Label badge = new Label(badgeText);
-		badge.setStyle("-fx-background-color: " + bgHex + "; -fx-text-fill: " + fgHex + "; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 3 8 3 8; -fx-background-radius: 6;");
-
-		Label lbl = new Label(detail);
-		lbl.setStyle("-fx-text-fill: " + textPrimary() + "; -fx-font-size: 12px;");
-
-		row.getChildren().addAll(badge, lbl);
-		return row;
-	}
-
-	public Label makeDetailLine(String key, String val) {
-		Label l = new Label(key + "  " + val);
-		l.setStyle("-fx-text-fill: " + textPrimary() + "; -fx-font-size: 12px;");
-		return l;
-	}
-
-
-	public VBox wrapField(String labelText, Node control) {
-		Label lbl = new Label(labelText);
-		lbl.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-text-fill: " + textPrimary() + ";");
-		return new VBox(5, lbl, control);
-	}
-
-	public VBox makeReadOnlyBox(String label, String val) {
-		Label lbl = new Label(label);
-		lbl.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-text-fill: " + textPrimary() + ";");
-		TextField tf = new TextField(val);
-		tf.setEditable(false);
-		tf.setStyle(inputStyle());
-		return new VBox(5, lbl, tf);
-	}
-
-	public <T> TableCell<T, String> createStatusBadgeCell() {
-		return new TableCell<T, String>() {
-			@Override
-			protected void updateItem(String item, boolean empty) {
-				super.updateItem(item, empty);
-				if (empty || item == null) {
-					setGraphic(null);
-				} else {
-					Label badge = new Label(item);
-					String bg = "#fef3c7";
-					String fg = "#92400e";
-					if ("Approved".equalsIgnoreCase(item) || "Accepted".equalsIgnoreCase(item)) {
-						bg = "#dcfce7";
-						fg = "#166534";
-					} else if ("Rejected".equalsIgnoreCase(item)) {
-						bg = "#fde8e8";
-						fg = "#9b1c1c";
+	// generate the next sequential user id such as USR-005
+	public String generateNextUserId() { // define generatenextuserid method
+		int max = 0; // track highest numeric suffix
+		for (User u : users) { // scan existing user ids
+			String id = u.getUserId(); // read user id string
+			if (id != null && id.startsWith("USR-")) { // parse standard USR-XXX format
+				try { // attempt risky block
+					int num = Integer.parseInt(id.substring(4)); // extract numeric portion
+					if (num > max) { // update max if higher
+						max = num; // store new max
 					}
-					badge.setStyle("-fx-background-color: " + bg + "; -fx-text-fill: " + fg + ";"
-							+ "-fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 4 10 4 10; -fx-background-radius: 8;");
-					setGraphic(badge);
+				} catch (NumberFormatException ignored) { // handle exception
 				}
+			}
+		}
+		return String.format("USR-%03d", max + 1); // format next 3-digit user id
+	}
+
+	// round a decimal number to two decimal places
+	public double round2(double value) { // define round2 method
+		return Math.round(value * 100.0) / 100.0; // standard 2-decimal rounding
+	}
+
+	// compute total active loan value in php for a given farmer
+	public double getFarmerActiveLoanValue(String username) { // define getfarmeractiveloanvalue method
+		double sum = 0.0; // accumulate active loan php value
+		for (SeedRequest r : requestData) { // inspect all seed requests
+			if (r.getFarmer().equalsIgnoreCase(username) && ("Approved".equalsIgnoreCase(r.getStatus()) || "Pending".equalsIgnoreCase(r.getStatus()))) { // include pending and active loans
+				double val = r.getTotalValue(); // read stored php value
+				if (val <= 0) { // fallback calculation from current product price
+					Product p = findProduct(r.getLotId()); // look up product lot
+					if (p != null) { // multiply weight by unit price
+						val = round2(r.getAmount() * p.getPrice()); // compute php value
+					}
+				}
+				sum += val; // add to farmer total
+			}
+		}
+		return round2(sum); // return rounded php total
+	}
+
+	// recompute inventory summary labels
+	public void updateSummaryMetrics() { // define updatesummarymetrics method
+		int totalVarieties = (int) productData.stream().map(Product::getVariety).distinct().count(); // count unique seed varieties
+		double totalStocks = productData.stream().mapToDouble(Product::getAmount).sum(); // sum available kilograms across all lots
+		int totalLots = productData.size(); // count total inventory lots
+
+		lblVarieties.setText(String.valueOf(totalVarieties)); // update varieties label
+		lblStocks.setText(String.format("%.1f kg", totalStocks)); // update stock weight label
+		lblLots.setText(String.valueOf(totalLots)); // update lot count label
+	}
+
+	// recompute total donations label
+	public void updateDonationTotal() { // define updatedonationtotal method
+		double total = donationData.stream().mapToDouble(Donation::getAmount).sum(); // sum all donation amounts
+		lblDonationTotal.setText("Total Donations: \u20b1" + String.format("%,.2f", total)); // format peso total
+	}
+
+	// shared css style for primary forest-green action buttons
+	public String primaryButtonStyle() { // define primarybuttonstyle method
+		return "-fx-background-color: #17684d; -fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-font-size: 12px; -fx-background-radius: 8; -fx-padding: 9 16 9 16; -fx-cursor: hand;"; // primary button css
+	}
+
+	// shared css style for secondary outline buttons
+	public String outlineButtonStyle() { // define outlinebuttonstyle method
+		return "-fx-background-color: #ffffff; -fx-text-fill: #17684d; -fx-font-weight: bold; -fx-font-size: 12px; -fx-border-color: #cbd8d0; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8 14 8 14; -fx-cursor: hand;"; // outline button css
+	}
+
+	// shared css style for destructive or suspend buttons
+	public String dangerButtonStyle() { // define dangerbuttonstyle method
+		return "-fx-background-color: #fff5f5; -fx-text-fill: #c0392b; -fx-font-weight: bold; -fx-font-size: 12px; -fx-border-color: #f1c0bb; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8 14 8 14; -fx-cursor: hand;"; // danger button css
+	}
+
+	// shared css style for text inputs and combo boxes
+	public String inputStyle() { // define inputstyle method
+		return "-fx-background-color: #ffffff; -fx-border-color: #d6e0da; -fx-border-radius: 7; -fx-background-radius: 7; -fx-padding: 7 11 7 11; -fx-font-size: 12px; -fx-text-fill: #18241e;"; // standard field css
+	}
+
+	// shared css style for white dashboard cards
+	public String cardStyle() { // define cardstyle method
+		return "-fx-background-color: #ffffff; -fx-border-color: #e3ebe6; -fx-border-radius: 12; -fx-background-radius: 12; -fx-padding: 18;"; // white card css
+	}
+
+	// create a colored status badge cell factory for table columns
+	public <T> Callback<TableColumn<T, String>, TableCell<T, String>> createStatusBadgeCell() { // define createstatusbadgecell method
+		return col -> new TableCell<>() { // pass value
+			@Override
+			protected void updateItem(String item, boolean empty) { // render pill badge per cell value
+				super.updateItem(item, empty); // call superclass update
+				if (empty || item == null || item.isBlank()) { // clear empty cells
+					setGraphic(null); // remove graphic
+					setText(null); // remove text
+					return; // exit early
+				}
+				Label badge = new Label(item); // create pill label
+				String upper = item.toUpperCase(); // normalize status text for color matching
+				String bg = "#edf2ef"; // default neutral gray background
+				String fg = "#3c4f46"; // default neutral text
+				if (upper.contains("APPROVED") || upper.contains("VERIFIED") || upper.contains("ACCEPTED") || upper.contains("RETURNED")) { // positive statuses
+					bg = "#e4f5ec"; // soft mint background
+					fg = "#146c43"; // deep green text
+				} else if (upper.contains("PENDING")) { // waiting statuses
+					bg = "#fff4df"; // soft amber background
+					fg = "#9a6700"; // warm brown-amber text
+				} else if (upper.contains("REJECTED") || upper.contains("SUSPENDED") || upper.contains("OVERDUE")) { // negative or overdue statuses
+					bg = "#fdeaea"; // soft red background
+					fg = "#b42318"; // crimson text
+				}
+				badge.setStyle("-fx-background-color: " + bg + "; -fx-text-fill: " + fg + "; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 3 10 3 10; -fx-background-radius: 12;"); // apply pill css
+				setGraphic(badge); // set badge as cell graphic
+				setText(null); // hide raw text
 			}
 		};
 	}
 
-	// =========================================================================
-	// PER-TAB HELP MANUAL MODAL (LOW PRIORITY: HELP BUTTON PER TAB)
-	// =========================================================================
-	public void showTabHelpDialog(String route, boolean isAdmin) {
-		Stage helpStage = new Stage();
-		helpStage.initOwner(mainStage);
-		helpStage.initModality(Modality.APPLICATION_MODAL);
-		helpStage.initStyle(StageStyle.UTILITY);
-		helpStage.setTitle(t("User Manual \u2014 ", "Gabay sa Paggamit \u2014 ") + route);
+	// display a per-tab feature guide dialog when the user clicks the help button
+	public void showTabHelpDialog(String tabTitle, String overviewText) { // define showtabhelpdialog method
+		Stage dialog = new Stage(); // create modal help window
+		dialog.initOwner(mainStage); // attach to main application stage
+		dialog.initModality(Modality.APPLICATION_MODAL); // block background clicks while open
+		dialog.initStyle(StageStyle.UTILITY); // clean utility dialog border
+		dialog.setTitle("Help - " + tabTitle); // set window title
 
-		VBox card = new VBox(14);
-		card.setPadding(new Insets(24));
-		card.setStyle("-fx-background-color: " + bgCard() + ";");
+		Label lblHeading = new Label("How to Use: " + tabTitle); // dialog heading
+		lblHeading.setStyle("-fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: " + FOREST_DARK + ";"); // heading style
 
-		Label lblTitle = new Label(t("Help & Feature Overview: ", "Tulong at Guide sa Tab na Ito: ") + route);
-		lblTitle.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: " + PRIMARY_GREEN + ";");
+		Label lblBody = new Label(overviewText); // tab feature instructions
+		lblBody.setWrapText(true); // wrap multi-line bullet points
+		lblBody.setStyle("-fx-font-size: 13px; -fx-text-fill: " + TEXT_DARK + "; -fx-line-spacing: 4;"); // body text style
 
-		String guideText;
-		if (isAdmin) {
-			switch (route) {
-				case "Inventory":
-					guideText = t(
-							"\u2022 View live metrics for Plant Varieties, Seed Stock (kg), and Storage Lots.\n"
-									+ "\u2022 Click '+ Add Inventory Slot' to register new seed lots with unit, minimum threshold, and expiry.\n"
-									+ "\u2022 Click 'View' on any lot row to inspect, edit, or delete that seed product.\n"
-									+ "\u2022 Changes automatically save to products.txt.",
-							"\u2022 Kita agad dito kung ilang variety, ilang kilo ang stock, at ilang seed lot ang meron.\n"
-									+ "\u2022 I-click ang '+ Magdagdag ng Seed Lot' para magpasok ng bagong binhi.\n"
-									+ "\u2022 I-click ang 'Tingnan' sa kahit anong row para i-edit o i-delete ang binhi.\n"
-									+ "\u2022 Automatic nang nase-save sa products.txt ang lahat ng changes.");
-					break;
-				case "Farmers":
-					guideText = t(
-							"\u2022 Manage all registered Farmers and Admins in the system.\n"
-									+ "\u2022 Click '+ Add Farm / User Account' to create a new Farmer or Admin account directly.\n"
-									+ "\u2022 Click 'View' on any account to inspect Farmer Info, Farm Info, and Pending Seed Requests/Returns.\n"
-									+ "\u2022 Inside View Details, you can Verify pending farmers, Assign/Revoke Admin privileges, or Suspend/Unsuspend users.",
-							"\u2022 Dito mo ma-manage lahat ng registered Farmers at Admins.\n"
-									+ "\u2022 I-click ang '+ Magdagdag ng Account' para gumawa ng bagong Farmer o Admin account.\n"
-									+ "\u2022 I-click ang 'Tingnan' para makita ang Farmer Info, Farm Info, at Pending Requests/Returns.\n"
-									+ "\u2022 Sa loob ng View Details, pwede mong i-Verify ang farmer, Gawing Admin, o I-suspend ang user.");
-					break;
-				case "Transactions":
-					guideText = t(
-							"\u2022 Review incoming farmer seed requests in the top table and click 'View' to Approve or Reject.\n"
-									+ "\u2022 Approving a request automatically deducts seed stock and sets a return deadline.\n"
-									+ "\u2022 Inspect returned seeds in the bottom table and click 'Accept' to replenish inventory stock.",
-							"\u2022 Tingnan ang mga hiling na binhi sa taas at i-click ang 'Tingnan' para i-Approve o i-Reject.\n"
-									+ "\u2022 Pag na-approve, automatic na mababawas sa stock at magkakaroon ng return due date.\n"
-									+ "\u2022 Sa baba naman, i-click ang 'Tanggapin' sa mga ibinalik na binhi para madagdag ulit sa stock.");
-					break;
-				case "Donations":
-					guideText = t(
-							"\u2022 View all monetary donations contributed from the public landing page.\n"
-									+ "\u2022 Tracks donor names, emails, amounts, and messages.",
-							"\u2022 Kita dito lahat ng donasyong pumasok galing sa public landing page.\n"
-									+ "\u2022 Naka-list dito ang pangalan ng donor, email, halaga, at message nila.");
-					break;
-				default:
-					guideText = t(
-							"\u2022 Overview of Pending Seed Requests, Pending Seed Returns, Missing Returns (Late Deadlines), and Inventory Stock.\n"
-									+ "\u2022 Quickly identify overdue loans highlighted in red and jump straight to User Management.",
-							"\u2022 Quick summary ng Pending Seed Requests, Pending Seed Returns, Late Returns, at lagay ng Inventory.\n"
-									+ "\u2022 Kita agad ang mga overdue na hiram (naka-red badge) at pwede kang dumiretso sa User Management.");
-					break;
-			}
-		} else {
-			switch (route) {
-				case "Requests":
-					guideText = t(
-							"\u2022 Browse available seed lots in the Seed Bank table on the left.\n"
-									+ "\u2022 Select a seed lot, enter the requested weight (kg) and planting purpose on the right, and submit.\n"
-									+ "\u2022 Note: Unverified farmer accounts have limited access until verified by an Admin.",
-							"\u2022 Pumili ng available na binhi sa table sa kaliwa.\n"
-									+ "\u2022 Ilagay sa kanan kung ilang kilo (kg) ang kailangan at kung para saan itatanim, tapos i-submit.\n"
-									+ "\u2022 Paalala: Kailangan munang ma-verify ng Admin ang account mo bago makahiram.");
-					break;
-				case "Transactions":
-					guideText = t(
-							"\u2022 Track the approval status and return due dates of your seed requests.\n"
-									+ "\u2022 Click '\u21a9 Submit Seed Return' to return harvested seeds from an approved loan.",
-							"\u2022 I-check dito kung na-approve na ang request mo at kailan ang due date ng pagbabalik.\n"
-									+ "\u2022 I-click ang '\u21a9 Magbalik ng Binhi' para mag-submit ng ibabalik na binhi pagka-ani.");
-					break;
-				default:
-					guideText = t(
-							"\u2022 View your Pending Seed Requests, Pending Seed Returns, and Return Deadlines at a glance.\n"
-									+ "\u2022 Update your Phone Number, Email, Farm Name, and Farm Address directly in the Basic Information card.",
-							"\u2022 Kita agad dito ang Pending Seed Requests, Pending Seed Returns, at mga Due Date mo.\n"
-									+ "\u2022 Pwede mo ring i-edit dito mismo ang Cellphone Number, Email, Farm Name, at Farm Address mo.");
-					break;
-			}
-		}
+		Button btnClose = new Button("Got it"); // close button
+		btnClose.setStyle(primaryButtonStyle()); // apply primary green button style
+		btnClose.setOnAction(e -> dialog.close()); // close dialog when clicked
 
-		Label lblBody = new Label(guideText);
-		lblBody.setWrapText(true);
-		lblBody.setStyle("-fx-text-fill: " + textPrimary() + "; -fx-font-size: 13px; -fx-line-spacing: 4;");
+		HBox footer = new HBox(btnClose); // bottom button bar
+		footer.setAlignment(Pos.CENTER_RIGHT); // align close button right
 
-		Button btnOk = new Button(t("Got it", "Sige, gets!"));
-		btnOk.setStyle(primaryButtonStyle());
-		btnOk.setOnAction(e -> helpStage.close());
+		VBox layout = new VBox(16, lblHeading, lblBody, footer); // vertical dialog container
+		layout.setPadding(new Insets(22)); // outer dialog padding
+		layout.setStyle("-fx-background-color: #ffffff;"); // clean white surface
 
-		HBox footer = new HBox(btnOk);
-		footer.setAlignment(Pos.CENTER_RIGHT);
-
-		card.getChildren().addAll(lblTitle, lblBody, footer);
-		helpStage.setScene(new Scene(card, 480, 260));
-		helpStage.showAndWait();
+		dialog.setScene(new Scene(layout, 460, 250)); // set dialog dimensions
+		dialog.showAndWait(); // display modal dialog
 	}
 
-	// =========================================================================
-	// FILE PERSISTENCE (USERS, PRODUCTS, DONATIONS)
-	// =========================================================================
-	public ObservableList<User> loadUsers(java.nio.file.Path path) {
-		ObservableList<User> list = FXCollections.observableArrayList();
-		try {
-			if (Files.exists(path)) {
-				for (String line : Files.readAllLines(path)) {
-					if (line.trim().isEmpty()) continue;
-					String[] p = line.split("\\|", -1);
-					if (p.length >= 12) {
-						list.add(new User(p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11]));
-					} else if (p.length >= 11) {
-						list.add(new User(p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], ""));
+	// sanitize pipe delimiters before writing text records
+	private String cleanField(String text) { // define cleanfield helper
+		if (text == null) { // handle null strings safely
+			return ""; // return empty string
+		}
+		return text.replace("|", "/").replace("\n", " ").replace("\r", " ").trim(); // strip pipe and newlines
+	}
+
+	// load user accounts from users.txt
+	public ObservableList<User> loadUsers(Path path) { // define loadusers method
+		ObservableList<User> list = FXCollections.observableArrayList(); // result list
+		try { // attempt risky block
+			if (Files.exists(path)) { // read only if file exists
+				for (String line : Files.readAllLines(path)) { // iterate over each line
+					if (line.trim().isEmpty()) { // skip blank lines
+						continue; // move to next line
+					}
+					String[] p = line.split("\\|", -1); // split pipe-delimited fields
+					if (p.length >= 13) { // parse full 14-column user record
+						String reason = p.length >= 14 ? p[13].trim() : ""; // read optional suspension reason
+						list.add(new User(p[0].trim(), p[1].trim(), p[2].trim(), p[3].trim(), // continue statement
+								p[4].trim(), p[5].trim(), p[6].trim(), p[7].trim(), // continue statement
+								p[8].trim(), p[9].trim(), Double.parseDouble(p[10].trim()), // continue statement
+								Boolean.parseBoolean(p[11].trim()), Boolean.parseBoolean(p[12].trim()), reason)); // add parsed user
 					}
 				}
 			}
-		} catch (IOException e) {
-			e.printStackTrace();
+		} catch (Exception e) { // handle exception
+			e.printStackTrace(); // log file read errors
 		}
-		if (list.isEmpty()) {
-			list.addAll(
-					new User("ADM-001", "admin", "admin123", "Admin", "09171000001", "admin@seedspreaders.ph",
-							"UPLB Central Seed Bank", "Los Ba\u00f1os, Laguna", "ADMIN-01", "5.0 ha", "Verified"),
-					new User("FRM-001", "juan", "farmer123", "Farmer", "09172223333", "juan@lagunafarms.ph",
-							"Dela Cruz Farm", "Bay, Laguna", "RSBSA-04-034-0012", "2.5 ha", "Verified"),
-					new User("FRM-002", "maria", "farmer123", "Farmer", "09174445555", "maria@lagunafarms.ph",
-							"Santos Agri-Farm", "Calauan, Laguna", "RSBSA-04-034-0089", "3.0 ha", "Verified"));
-			saveUsers(path, list);
-		}
-		nextUserId = list.size() + 1;
-		return list;
+		return list; // return loaded users
 	}
 
-	public void saveUsers(java.nio.file.Path path, ObservableList<User> data) {
-		try {
-			List<String> lines = new ArrayList<>();
-			for (User u : data) {
-				lines.add(String.join("|",
-						safe(u.getUserId()), safe(u.getUsername()), safe(u.getPassword()), safe(u.getRole()),
-						safe(u.getPhoneNumber()), safe(u.getEmail()), safe(u.getFarmName()), safe(u.getFarmAddress()),
-						safe(u.getRsbsaNumber()), safe(u.getFarmArea()), safe(u.getStatus()),
-						safe(u.getSuspensionReason())));
+	// save all user accounts to users.txt
+	public void saveUsers() { // define saveusers method
+		try (PrintWriter writer = new PrintWriter(userPath.toFile())) { // open writer to users.txt
+			for (User u : users) { // write one line per user
+				writer.println(cleanField(u.getUserId()) + "|" + cleanField(u.getUsername()) + "|" // continue statement
+						+ cleanField(u.getPassword()) + "|" + cleanField(u.getRole()) + "|" // continue statement
+						+ cleanField(u.getFullName()) + "|" + cleanField(u.getPhone()) + "|" // continue statement
+						+ cleanField(u.getEmail()) + "|" + cleanField(u.getFarmName()) + "|" // continue statement
+						+ cleanField(u.getFarmAddress()) + "|" + cleanField(u.getRsbsaNumber()) + "|" // continue statement
+						+ u.getFarmAreaHa() + "|" + u.isVerified() + "|" + u.isSuspended() + "|" // continue statement
+						+ cleanField(u.getSuspensionReason())); // write pipe-separated user fields
 			}
-			Files.write(path, lines);
-		} catch (IOException e) {
-			e.printStackTrace();
+		} catch (IOException e) { // handle exception
+			e.printStackTrace(); // log write errors
 		}
 	}
 
-	public String safe(String s) {
-		return s == null ? "" : s.replace("|", "/").replace("\n", " ");
-	}
-
-	public ObservableList<Product> loadProducts(java.nio.file.Path path) {
-		ObservableList<Product> list = FXCollections.observableArrayList();
-		try {
-			if (Files.exists(path)) {
-				for (String line : Files.readAllLines(path)) {
-					if (line.trim().isEmpty()) continue;
-					String[] parts = line.split(",");
-					if (parts.length >= 10) {
-						list.add(new Product(parts[0].trim(), Double.parseDouble(parts[1].trim()),
-								Double.parseDouble(parts[2].trim()), Integer.parseInt(parts[3].trim()),
-								parts[4].trim(), parts[5].trim(), parts[6].trim(),
-								parts[7].trim(), Double.parseDouble(parts[8].trim()), parts[9].trim()));
-					} else if (parts.length >= 7) {
-						list.add(new Product(parts[0].trim(), Double.parseDouble(parts[1].trim()),
-								Double.parseDouble(parts[2].trim()), Integer.parseInt(parts[3].trim()),
-								parts[4].trim(), parts[5].trim(), parts[6].trim()));
+	// load seed inventory from products.txt
+	public ObservableList<Product> loadProducts(Path path) { // define loadproducts method
+		ObservableList<Product> list = FXCollections.observableArrayList(); // result list
+		try { // attempt risky block
+			if (Files.exists(path)) { // check if products.txt exists
+				for (String line : Files.readAllLines(path)) { // read each line
+					if (line.trim().isEmpty()) { // skip blank lines
+						continue; // move to next line
+					}
+					String[] parts = line.split(","); // split comma-separated product fields
+					if (parts.length >= 7) { // ensure all 7 columns exist
+						list.add(new Product( // continue statement
+								parts[0].trim(), // crop name
+								Double.parseDouble(parts[1].trim()), // price per kg
+								Double.parseDouble(parts[2].trim()), // stock amount in kg
+								Integer.parseInt(parts[3].trim()), // lot id
+								parts[4].trim(), // storage location
+								parts[5].trim(), // variety
+								parts[6].trim())); // description
 					}
 				}
 			}
-		} catch (IOException | NumberFormatException e) {
-			e.printStackTrace();
+		} catch (IOException | NumberFormatException e) { // handle exception
+			e.printStackTrace(); // log parsing errors
 		}
-		return list;
+		return list; // return loaded products
 	}
 
-	public void saveProducts(java.nio.file.Path path, ObservableList<Product> data) {
-		try {
-			List<String> lines = new ArrayList<>();
-			for (Product p : data) {
-				lines.add(p.getName() + "," + p.getPrice() + "," + p.getAmount() + ","
-						+ p.getLotID() + "," + p.getLocation() + "," + p.getVariety() + ","
-						+ p.getDescription().replace(",", ";") + "," + p.getUnit() + ","
-						+ p.getMinThreshold() + "," + p.getExpiryDate());
+	// save seed inventory to products.txt
+	public void saveProducts() { // define saveproducts method
+		saveProducts(productPath, productData); // delegate to parameterized overload
+	}
+
+	// save seed inventory to a target file path
+	public void saveProducts(Path path, ObservableList<Product> data) { // define saveproducts method
+		try { // attempt risky block
+			List<String> lines = new ArrayList<>(); // buffer formatted lines
+			for (Product product : data) { // serialize each product lot
+				lines.add(product.getName().replace(",", " ") + "," + product.getPrice() + "," + product.getAmount() + "," // continue statement
+						+ product.getLotID() + "," + product.getLocation().replace(",", " ") + "," // continue statement
+						+ product.getVariety().replace(",", " ") + "," + product.getDescription().replace(",", " ")); // comma-separated product line
 			}
-			Files.write(path, lines);
-		} catch (IOException e) {
-			e.printStackTrace();
+			Files.write(path, lines); // write all lines to disk
+		} catch (IOException e) { // handle exception
+			e.printStackTrace(); // log write errors
 		}
 	}
 
-	public ObservableList<Donation> loadDonations(java.nio.file.Path path) {
-		ObservableList<Donation> list = FXCollections.observableArrayList();
-		try {
-			if (Files.exists(path)) {
-				for (String line : Files.readAllLines(path)) {
-					if (line.trim().isEmpty()) continue;
-					String[] parts = line.split(",", 4);
-					if (parts.length < 3) continue;
-					list.add(new Donation(parts[0].trim(), parts[1].trim(),
-							Double.parseDouble(parts[2].trim()), parts.length > 3 ? parts[3].trim() : ""));
+	// load seed requests from requests.txt
+	public ObservableList<SeedRequest> loadRequests(Path path) { // define loadrequests method
+		ObservableList<SeedRequest> list = FXCollections.observableArrayList(); // result list
+		try { // attempt risky block
+			if (Files.exists(path)) { // check if file exists
+				for (String line : Files.readAllLines(path)) { // read each line
+					if (line.trim().isEmpty()) { // skip blank lines
+						continue; // move to next line
+					}
+					String[] p = line.split("\\|", -1); // split pipe-delimited columns
+					if (p.length >= 11) { // parse 11-column request record
+						list.add(new SeedRequest( // continue statement
+								Integer.parseInt(p[0].trim()), // request id
+								p[1].trim(), // farmer username
+								Integer.parseInt(p[2].trim()), // lot id
+								p[3].trim(), // crop name
+								p[4].trim(), // variety
+								Double.parseDouble(p[5].trim()), // amount in kg
+								Double.parseDouble(p[6].trim()), // total php value
+								p[7].trim(), // purpose
+								p[8].trim(), // status
+								p[9].trim(), // request date
+								p[10].trim())); // due date
+					}
 				}
 			}
-		} catch (IOException | NumberFormatException e) {
-			e.printStackTrace();
+		} catch (Exception e) { // handle exception
+			e.printStackTrace(); // log read errors
 		}
-		return list;
+		return list; // return loaded requests
 	}
 
-	public void saveDonations(java.nio.file.Path path, ObservableList<Donation> data) {
-		try {
-			List<String> lines = new ArrayList<>();
-			for (Donation d : data) {
-				String msg = d.getMessage().replace("\n", " ").replace("\r", " ");
-				lines.add(d.getDonorName() + "," + d.getEmail() + "," + d.getAmount() + "," + msg);
+	// save seed requests to requests.txt
+	public void saveRequests() { // define saverequests method
+		try (PrintWriter writer = new PrintWriter(requestPath.toFile())) { // open writer to requests.txt
+			for (SeedRequest r : requestData) { // write one line per request
+				writer.println(r.getRequestId() + "|" + cleanField(r.getFarmer()) + "|" + r.getLotId() + "|" // continue statement
+						+ cleanField(r.getName()) + "|" + cleanField(r.getVariety()) + "|" + r.getAmount() + "|" // continue statement
+						+ r.getTotalValue() + "|" + cleanField(r.getPurpose()) + "|" + cleanField(r.getStatus()) + "|" // continue statement
+						+ cleanField(r.getRequestDate()) + "|" + cleanField(r.getDueDate())); // write pipe-separated request line
 			}
-			try (PrintWriter writer = new PrintWriter(path.toFile())) {
-				for (String line : lines) writer.println(line);
+		} catch (IOException e) { // handle exception
+			e.printStackTrace(); // log write errors
+		}
+	}
+
+	// load seed returns from returns.txt
+	public ObservableList<SeedReturn> loadReturns(Path path) { // define loadreturns method
+		ObservableList<SeedReturn> list = FXCollections.observableArrayList(); // result list
+		try { // attempt risky block
+			if (Files.exists(path)) { // check if returns.txt exists
+				for (String line : Files.readAllLines(path)) { // read each line
+					if (line.trim().isEmpty()) { // skip blank lines
+						continue; // move to next line
+					}
+					String[] p = line.split("\\|", -1); // split pipe-delimited columns
+					if (p.length >= 8) { // parse 8-column return record
+						list.add(new SeedReturn( // continue statement
+								Integer.parseInt(p[0].trim()), // return id
+								Integer.parseInt(p[1].trim()), // linked request id
+								p[2].trim(), // farmer username
+								Integer.parseInt(p[3].trim()), // lot id
+								p[4].trim(), // seed label
+								Double.parseDouble(p[5].trim()), // returned amount in kg
+								p[6].trim(), // status
+								p[7].trim())); // return date
+					}
+				}
 			}
-		} catch (IOException e) {
-			e.printStackTrace();
+		} catch (Exception e) { // handle exception
+			e.printStackTrace(); // log read errors
+		}
+		return list; // return loaded returns
+	}
+
+	// save seed returns to returns.txt
+	public void saveReturns() { // define savereturns method
+		try (PrintWriter writer = new PrintWriter(returnPath.toFile())) { // open writer to returns.txt
+			for (SeedReturn r : returnData) { // write one line per return
+				writer.println(r.getReturnId() + "|" + r.getRequestId() + "|" + cleanField(r.getFarmer()) + "|" // continue statement
+						+ r.getLotId() + "|" + cleanField(r.getSeedLabel()) + "|" + r.getAmount() + "|" // continue statement
+						+ cleanField(r.getStatus()) + "|" + cleanField(r.getReturnDate())); // write pipe-separated return line
+			}
+		} catch (IOException e) { // handle exception
+			e.printStackTrace(); // log write errors
 		}
 	}
 
-	public Product findProduct(int lotId) {
-		for (Product p : productData) {
-			if (p.getLotID() == lotId) return p;
+	// load donations from donations.txt
+	public ObservableList<Donation> loadDonations(Path path) { // define loaddonations method
+		ObservableList<Donation> list = FXCollections.observableArrayList(); // result list
+		try { // attempt risky block
+			if (Files.exists(path)) { // check if donations.txt exists
+				for (String line : Files.readAllLines(path)) { // read each line
+					if (line.trim().isEmpty()) { // skip blank lines
+						continue; // move to next line
+					}
+					String[] parts = line.split(",", 4); // split into 4 fields max so messages can keep commas
+					if (parts.length >= 3) { // require at least name, email, and amount
+						list.add(new Donation( // continue statement
+								parts[0].trim(), // donor name
+								parts[1].trim(), // donor email
+								Double.parseDouble(parts[2].trim()), // donation amount
+								parts.length > 3 ? parts[3].trim() : "")); // optional message
+					}
+				}
+			}
+		} catch (IOException | NumberFormatException e) { // handle exception
+			e.printStackTrace(); // log read errors
 		}
-		return null;
+		return list; // return loaded donations
 	}
 
-	public double round2(double value) {
-		return Math.round(value * 100.0) / 100.0;
+	// save donations to donations.txt
+	public void saveDonations() { // define savedonations method
+		saveDonations(donationPath, donationData); // delegate to parameterized overload
+	}
+
+	// save donations to a target file path
+	public void saveDonations(Path path, ObservableList<Donation> data) { // define savedonations method
+		try { // attempt risky block
+			List<String> lines = new ArrayList<>(); // buffer formatted lines
+			for (Donation donation : data) { // serialize each donation
+				String message = donation.getMessage().replace("\n", " ").replace("\r", " "); // flatten line breaks
+				lines.add(donation.getDonorName().replace(",", " ") + "," + donation.getEmail().replace(",", " ") + "," // continue statement
+						+ donation.getAmount() + "," + message); // format comma-separated donation line
+			}
+			Files.write(path, lines); // write all donation lines to disk
+		} catch (IOException e) { // handle exception
+			e.printStackTrace(); // log write errors
+		}
 	}
 }

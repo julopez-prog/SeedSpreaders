@@ -1,124 +1,117 @@
-package application;
+package application; // root application package
 
-import java.time.LocalDate;
+import java.time.LocalDate; // used for checking overdue return deadlines
 
-public class SeedRequest {
-	private int requestId;
-	private String farmer;
-	private String farmName;
-	private int lotId;
-	private String name;
-	private String variety;
-	private double amount;
-	private double unitPrice;
-	private String purpose;
-	private String status;
-	private LocalDate requestDate;
-	private LocalDate dueDate;
+// represents a farmer's seed loan request
+public class SeedRequest { // declare seedrequest class
+	private int requestId; // unique request id number
+	private String farmer; // username of the requesting farmer
+	private int lotId; // target seed lot id
+	private String name; // requested crop name
+	private String variety; // requested seed variety
+	private double amount; // requested weight in kilograms
+	private double totalValue; // php value of the borrowed seeds
+	private String purpose; // farming or planting purpose
+	private String status; // Pending, Approved, Rejected, or Returned
+	private String requestDate; // date request was submitted (yyyy-mm-dd)
+	private String dueDate; // harvest repayment due date (yyyy-mm-dd)
 
-	public SeedRequest(int requestId, String farmer, int lotId, String name, String variety,
-			double amount, String purpose, String status) {
-		this(requestId, farmer, farmer + " Farm", lotId, name, variety, amount, 0.0,
-				purpose, status, LocalDate.now(), LocalDate.now().plusDays(90));
+	// full constructor with value and date tracking
+	public SeedRequest(int requestId, String farmer, int lotId, String name, String variety, // continue statement
+			double amount, double totalValue, String purpose, String status, // declare parameter
+			String requestDate, String dueDate) { // declare parameter
+		this.requestId = requestId; // assign request id
+		this.farmer = farmer; // assign farmer username
+		this.lotId = lotId; // assign lot id
+		this.name = name; // assign crop name
+		this.variety = variety; // assign variety
+		this.amount = amount; // assign requested weight
+		this.totalValue = totalValue; // assign php loan value
+		this.purpose = purpose; // assign planting purpose
+		this.status = status; // assign request status
+		this.requestDate = requestDate == null ? "" : requestDate; // assign request date
+		this.dueDate = dueDate == null ? "" : dueDate; // assign due date
 	}
 
-	public SeedRequest(int requestId, String farmer, String farmName, int lotId, String name, String variety,
-			double amount, double unitPrice, String purpose, String status, LocalDate requestDate, LocalDate dueDate) {
-		this.requestId = requestId;
-		this.farmer = farmer;
-		this.farmName = farmName;
-		this.lotId = lotId;
-		this.name = name;
-		this.variety = variety;
-		this.amount = amount;
-		this.unitPrice = unitPrice;
-		this.purpose = purpose;
-		this.status = status;
-		this.requestDate = requestDate;
-		this.dueDate = dueDate;
+	// backward-compatible constructor
+	public SeedRequest(int requestId, String farmer, int lotId, String name, String variety, // continue statement
+			double amount, String purpose, String status) { // declare parameter
+		this(requestId, farmer, lotId, name, variety, amount, 0.0, purpose, status, LocalDate.now().toString(), ""); // delegate to full constructor
 	}
 
-	public int getRequestId() {
-		return requestId;
+	public int getRequestId() { // return request id
+		return requestId; // integer request id
 	}
 
-	public String getTransactionCode() {
-		return String.format("TRS-%03d", requestId);
+	public String getFarmer() { // return farmer username
+		return farmer; // farmer username
 	}
 
-	public String getFarmer() {
-		return farmer;
+	public int getLotId() { // return seed lot id
+		return lotId; // lot id
 	}
 
-	public String getFarmName() {
-		return farmName;
+	public String getName() { // return crop name
+		return name; // crop name
 	}
 
-	public void setFarmName(String farmName) {
-		this.farmName = farmName;
+	public String getVariety() { // return variety name
+		return variety; // variety name
 	}
 
-	public int getLotId() {
-		return lotId;
+	public String getSeedLabel() { // combined crop and variety label for tables
+		return name + " - " + variety; // formatted seed label
 	}
 
-	public String getName() {
-		return name;
+	public double getAmount() { // return requested weight in kg
+		return amount; // weight in kg
 	}
 
-	public String getVariety() {
-		return variety;
+	public double getTotalValue() { // return php value of loan
+		return totalValue; // php amount
 	}
 
-	public String getSeedLabel() {
-		return name + " - " + variety;
+	public void setTotalValue(double totalValue) { // update php value of loan
+		this.totalValue = totalValue; // store php amount
 	}
 
-	public double getAmount() {
-		return amount;
+	public String getPurpose() { // return planting purpose
+		return purpose; // purpose string
 	}
 
-	public String getQuantityLabel() {
-		return amount + " kg";
+	public String getStatus() { // return current status
+		return status; // Pending, Approved, Rejected, or Returned
 	}
 
-	public double getUnitPrice() {
-		return unitPrice;
+	public void setStatus(String status) { // update request status
+		this.status = status; // store new status
 	}
 
-	public double getTotalValue() {
-		return Math.round(amount * unitPrice * 100.0) / 100.0;
+	public String getRequestDate() { // return date requested
+		return requestDate; // yyyy-mm-dd string
 	}
 
-	public String getPurpose() {
-		return purpose;
+	public void setRequestDate(String requestDate) { // update date requested
+		this.requestDate = requestDate; // store date string
 	}
 
-	public String getStatus() {
-		return status;
+	public String getDueDate() { // return harvest repayment due date
+		return dueDate; // yyyy-mm-dd string or empty
 	}
 
-	public void setStatus(String status) {
-		this.status = status;
+	public void setDueDate(String dueDate) { // update repayment due date
+		this.dueDate = dueDate; // store due date string
 	}
 
-	public LocalDate getRequestDate() {
-		return requestDate;
-	}
-
-	public void setRequestDate(LocalDate requestDate) {
-		this.requestDate = requestDate;
-	}
-
-	public LocalDate getDueDate() {
-		return dueDate;
-	}
-
-	public void setDueDate(LocalDate dueDate) {
-		this.dueDate = dueDate;
-	}
-
-	public boolean isOverdue() {
-		return "Approved".equalsIgnoreCase(status) && dueDate != null && dueDate.isBefore(LocalDate.now());
+	// check if this loan is still active (approved) and past its due date
+	public boolean isOverdue() { // define isoverdue method
+		if (!"Approved".equalsIgnoreCase(status) || dueDate == null || dueDate.isBlank()) { // only active approved loans with a due date can be overdue
+			return false; // not overdue once returned or if not approved
+		}
+		try { // attempt risky block
+			return LocalDate.parse(dueDate.trim()).isBefore(LocalDate.now()); // true if due date is earlier than today
+		} catch (Exception e) { // handle exception
+			return false; // ignore unparseable dates
+		}
 	}
 }

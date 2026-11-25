@@ -1,573 +1,717 @@
-package application.farmer;
+package application.farmer; // farmer dashboard, seed requests, and harvest returns
 
-import application.Product;
-import application.SeedRequest;
-import application.SeedReturn;
-import application.shared.AppState;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.collections.transformation.FilteredList;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Node;
-import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
-import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.ColumnConstraints;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.VBox;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.stage.StageStyle;
+import application.Product; // seed inventory model
+import application.SeedRequest; // seed request model
+import application.SeedReturn; // seed return model
+import application.User; // user account model
+import application.shared.AppState; // shared state and ui helpers
+import javafx.beans.property.SimpleStringProperty; // computed string property
+import javafx.collections.FXCollections; // observable list utility
+import javafx.collections.ObservableList; // reactive list
+import javafx.collections.transformation.FilteredList; // filtered view of shared lists
+import javafx.geometry.Insets; // layout padding
+import javafx.geometry.Pos; // alignment helper
+import javafx.scene.Node; // scene graph node
+import javafx.scene.Scene; // scene container
+import javafx.scene.control.Button; // button control
+import javafx.scene.control.Label; // text label
+import javafx.scene.control.ScrollPane; // scrollable viewport
+import javafx.scene.control.TableColumn; // table column
+import javafx.scene.control.TableView; // table view
+import javafx.scene.control.TextField; // text input
+import javafx.scene.control.cell.PropertyValueFactory; // property binding
+import javafx.scene.layout.BorderPane; // shell layout
+import javafx.scene.layout.ColumnConstraints; // grid column sizing
+import javafx.scene.layout.GridPane; // form grid layout
+import javafx.scene.layout.HBox; // horizontal box
+import javafx.scene.layout.Priority; // flex grow priority
+import javafx.scene.layout.Region; // flexible spacer
+import javafx.scene.layout.VBox; // vertical box
+import javafx.stage.Stage; // primary window
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.time.LocalDate; // current date tracking
+import java.util.List; // list collection
+import java.util.stream.Collectors; // stream collection helper
 
-public class FarmerPages {
+// handles all farmer dashboard views: overview, request seeds, transactions, and return seeds
+public class FarmerPages { // declare farmerpages class
+	private final Stage mainStage; // primary stage reference
+	private final AppState state; // shared application state
+	private final Runnable onLogout; // logout callback
 
-	private final AppState state;
-	private final Runnable onLogout;
+	private String activeTab = "Overview"; // currently selected sidebar route
+	private BorderPane shellRoot; // root layout container
+	private Label lblPageTitle; // top header page title
 
-	public FarmerPages(AppState state, Runnable onLogout) {
-		this.state = state;
-		this.onLogout = onLogout;
+	// constructor for farmer screens controller
+	public FarmerPages(Stage stage, AppState state, Runnable onLogout) { // define farmerpages method
+		this.mainStage = stage; // store primary stage
+		this.state = state; // store shared state
+		this.onLogout = onLogout; // store logout callback
 	}
 
-	public void showFarmerShell() {
-		BorderPane shell = new BorderPane();
-		shell.setStyle("-fx-background-color: " + state.bgPage() + ";");
+	// display the farmer shell with persistent sidebar, top header, and active tab
+	public void showFarmerShell() { // define showfarmershell method
+		shellRoot = new BorderPane(); // initialize root border pane
+		shellRoot.setStyle("-fx-background-color: " + AppState.BG_PAGE + ";"); // off-white page background
 
-		// Left Dark Forest Sidebar (#0c3026)
-		VBox sidebar = new VBox(8);
-		sidebar.setPrefWidth(250);
-		sidebar.setMinWidth(250);
-		sidebar.setPadding(new Insets(26, 16, 24, 16));
-		sidebar.setStyle("-fx-background-color: " + state.FOREST_DARK + ";");
+		shellRoot.setLeft(buildSidebar()); // attach left forest-green sidebar
+		shellRoot.setTop(buildTopHeader()); // attach top header bar
+		switchTab(activeTab); // load active tab view
 
-		Node logo = state.buildLogo(0.95, true);
-		VBox logoWrap = new VBox(logo);
-		logoWrap.setPadding(new Insets(0, 8, 28, 8));
-
-		Button navDashboard = state.createNavButton(this::showFarmerShell, state.t("Dashboard", "Dashboard"), "Dashboard", false);
-		Button navRequests = state.createNavButton(this::showFarmerShell, state.t("Requests", "Humiram ng Binhi"), "Requests", false);
-		Button navTransactions = state.createNavButton(this::showFarmerShell, state.t("Transactions", "Mga Transaksyon"), "Transactions", false);
-
-		Region spacer = new Region();
-		VBox.setVgrow(spacer, Priority.ALWAYS);
-
-		String verLabel = state.currentUser.isVerified() ? state.t("VERIFIED", "VERIFIED NA") : state.t("PENDING VERIFICATION", "HINDI PA VERIFIED");
-		Label lblRoleBadge = new Label(state.currentUser.getUsername().toUpperCase() + " \u2022 " + verLabel);
-		lblRoleBadge.setStyle("-fx-text-fill: " + (state.currentUser.isVerified() ? state.LIME_ACCENT : "#f4c44e") + "; -fx-font-size: 10px; -fx-font-weight: bold; -fx-padding: 0 0 6 12;");
-
-		Button btnLogout = new Button(state.t("Logout", "Mag-log Out"));
-		btnLogout.setMaxWidth(Double.MAX_VALUE);
-		btnLogout.setStyle("-fx-background-color: rgba(255,255,255,0.10); -fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-background-radius: 10; -fx-padding: 10 16 10 16; -fx-cursor: hand;");
-		btnLogout.setOnAction(e -> {
-			state.saveUsers(state.userPath, state.users);
-			state.currentUser = null;
-			onLogout.run();
-		});
-
-		sidebar.getChildren().addAll(logoWrap, navDashboard, navRequests, navTransactions, spacer, lblRoleBadge, btnLogout);
-
-		VBox centerWrapper = new VBox(18);
-		centerWrapper.setPadding(new Insets(24, 32, 24, 32));
-		centerWrapper.setStyle("-fx-background-color: " + state.bgPage() + ";");
-
-		HBox topHeader = state.buildTopHeader(state.getFarmerPageTitle(), false, this::showFarmerShell);
-
-		// Limited access banner for unverified farmers
-		if (!state.currentUser.isVerified()) {
-			HBox warnBanner = new HBox(10);
-			warnBanner.setAlignment(Pos.CENTER_LEFT);
-			warnBanner.setPadding(new Insets(12, 18, 12, 18));
-			warnBanner.setStyle("-fx-background-color: #fff3cd; -fx-border-color: #ffe69c; -fx-border-radius: 12; -fx-background-radius: 12;");
-			Label lblBanner = new Label(state.t("Limited Access Mode: Your farmer account is awaiting Admin verification. You can view your Overview and edit your Basic Information, but submitting new seed requests or returns is locked until verified.", "Limited Access Muna: Nag-aantay pa ng verification ng Admin ang account mo. Pwede mong tingnan ang Overview at i-edit ang Basic Info mo, pero naka-lock muna ang pag-request at pagbalik ng binhi hanggang ma-verify ka."));
-			lblBanner.setWrapText(true);
-			lblBanner.setStyle("-fx-text-fill: #664d03; -fx-font-weight: bold; -fx-font-size: 12px;");
-			warnBanner.getChildren().add(lblBanner);
-			centerWrapper.getChildren().add(warnBanner);
-		}
-
-		Node pageBody;
-		switch (state.currentRoute) {
-			case "Requests":
-				pageBody = buildFarmerRequestsView();
-				break;
-			case "Transactions":
-				pageBody = buildFarmerTransactionsView();
-				break;
-			default:
-				pageBody = buildFarmerDashboardOverview();
-				break;
-		}
-		VBox.setVgrow(pageBody, Priority.ALWAYS);
-
-		centerWrapper.getChildren().addAll(topHeader, pageBody);
-
-		shell.setLeft(sidebar);
-		shell.setCenter(centerWrapper);
-
-		state.applyScene(new Scene(shell, 1200, 780), "Seed Spreaders - Farmer (" + state.currentRoute + ")");
+		Scene scene = new Scene(shellRoot, 1180, 745); // create farmer scene
+		mainStage.setScene(scene); // display farmer scene
+		mainStage.setTitle("Seed Spreaders - Farmer Portal"); // set window title
 	}
 
-	// =========================================================================
-	// FARMER OVERVIEW DASHBOARD (SLIDE 10 + MEDIUM PRIORITY SPECS)
-	// =========================================================================
-	private ScrollPane buildFarmerDashboardOverview() {
-		VBox container = new VBox(18);
-		container.setPadding(new Insets(2, 4, 16, 2));
+	// build the left navigation sidebar with brand logo, route buttons, and logout
+	private VBox buildSidebar() { // define buildsidebar helper
+		VBox sidebar = new VBox(8); // vertical sidebar container
+		sidebar.setPrefWidth(240); // fixed sidebar width
+		sidebar.setMinWidth(240); // prevent shrinking
+		sidebar.setPadding(new Insets(24, 16, 22, 16)); // inner padding
+		sidebar.setStyle("-fx-background-color: " + AppState.FOREST_DARK + ";"); // dark forest background
 
-		long myPendingReqs = state.requestData.stream()
-				.filter(r -> r.getFarmer().equalsIgnoreCase(state.currentUser.getUsername()) && "Pending".equalsIgnoreCase(r.getStatus()))
-				.count();
-		long myPendingRets = state.returnData.stream()
-				.filter(r -> r.getFarmer().equalsIgnoreCase(state.currentUser.getUsername()) && "Pending".equalsIgnoreCase(r.getStatus()))
-				.count();
-		List<SeedRequest> activeLoans = state.requestData.stream()
-				.filter(r -> r.getFarmer().equalsIgnoreCase(state.currentUser.getUsername()) && "Approved".equalsIgnoreCase(r.getStatus()))
-				.collect(Collectors.toList());
+		Node logo = state.buildLogo(0.92, true); // build white logo lockup for dark sidebar
+		VBox logoBox = new VBox(logo); // wrapper for spacing
+		logoBox.setPadding(new Insets(0, 6, 24, 6)); // space below logo
 
-		String nextDeadline = activeLoans.stream()
-				.map(SeedRequest::getDueDate)
-				.filter(d -> d != null)
-				.min(LocalDate::compareTo)
-				.map(d -> d.format(state.DATE_FMT))
-				.orElse(state.t("No active deadlines", "Walang upcoming na due date"));
+		Button btnOverview = createNavButton("Overview", "Overview"); // farmer overview tab
+		Button btnRequest = createNavButton("Request Seeds", "Request"); // seed loan request tab
+		Button btnTransactions = createNavButton("My Transactions", "Transactions"); // request & return history tab
+		Button btnReturn = createNavButton("Return Seeds", "Return"); // harvest seed return tab
 
-		// Top 3 Cards matching Slide 10 (Pending Seed Requests, Pending Seed Returns, Deadlines of Returns)
-		HBox topCards = new HBox(16);
-		topCards.getChildren().addAll(
-				state.createStatCard(state.t("Pending Seed Requests", "Mga Pending na Request"),
-						String.valueOf(myPendingReqs),
-						state.t("Awaiting admin review", "Nire-review pa ng admin"), "#d97706"),
-				state.createStatCard(state.t("Pending Seed Returns", "Mga Pending na Return"),
-						String.valueOf(myPendingRets),
-						state.t("Submitted for inspection", "Naipasa na para i-inspect"), state.PRIMARY_GREEN),
-				state.createStatCard(state.t("Deadlines of Returns", "Mga Due Date ng Pagbabalik"),
-						nextDeadline,
-						activeLoans.size() + state.t(" active seed loan(s)", " active na hiram na binhi"), "#dc3545"));
+		Region spacer = new Region(); // push profile summary and logout to bottom
+		VBox.setVgrow(spacer, Priority.ALWAYS); // expand spacer vertically
 
-		// Middle Row: Return Deadlines Schedule (Left) + Editable Basic Information Card (Right)
-		HBox midRow = new HBox(16);
-		VBox.setVgrow(midRow, Priority.ALWAYS);
+		Label lblRole = new Label("REGISTERED FARMER"); // role badge text
+		lblRole.setStyle("-fx-text-fill: #8ec9a4; -fx-font-size: 10px; -fx-font-weight: bold;"); // sage green text
 
-		// Left Card: Return Deadlines & Quick Seed Return Action
-		VBox deadlinesCard = new VBox(12);
-		deadlinesCard.setStyle(state.cardStyle());
-		HBox.setHgrow(deadlinesCard, Priority.ALWAYS);
-		deadlinesCard.setPrefWidth(540);
+		Label lblName = new Label(state.currentUser != null ? state.currentUser.getFullName() : "Farmer"); // logged-in farmer name
+		lblName.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 13px; -fx-font-weight: bold;"); // white bold text
 
-		Label lblDeadlines = new Label(state.t("Upcoming & Overdue Return Deadlines", "Mga Upcoming at Overdue na Return Deadlines"));
-		lblDeadlines.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
+		VBox userCard = new VBox(3, lblRole, lblName); // session info box
+		userCard.setPadding(new Insets(12)); // inner padding
+		userCard.setStyle("-fx-background-color: rgba(255,255,255,0.08); -fx-background-radius: 10;"); // subtle dark card
 
-		VBox deadlineList = new VBox(10);
-		if (activeLoans.isEmpty()) {
-			Label none = new Label(state.t("You have no active seed loans with pending return deadlines.", "Wala kang active na hiram na may pending deadline ngayon."));
-			none.setStyle("-fx-text-fill: " + state.textMuted() + ";");
-			deadlineList.getChildren().add(none);
-		} else {
-			for (SeedRequest loan : activeLoans) {
-				boolean overdue = loan.isOverdue();
-				String dueStr = loan.getDueDate() != null ? loan.getDueDate().format(state.DATE_FMT) : "-";
-				deadlineList.getChildren().add(state.createAlertRow(
-						overdue ? state.t("OVERDUE", "OVERDUE NA") : state.t("DUE ", "DUE ") + dueStr,
-						loan.getTransactionCode() + " \u2022 " + loan.getSeedLabel() + " (" + loan.getAmount() + " kg)",
-						overdue ? "#fde8e8" : "#dcfce7",
-						overdue ? "#9b1c1c" : "#166534"));
-			}
+		Button btnLogout = new Button("Log Out"); // logout button
+		btnLogout.setMaxWidth(Double.MAX_VALUE); // full width
+		btnLogout.setStyle("-fx-background-color: rgba(255,255,255,0.12); -fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-font-size: 12px; -fx-background-radius: 8; -fx-padding: 10 14 10 14; -fx-cursor: hand;"); // light button on dark green
+		btnLogout.setOnAction(e -> { // attach click listener
+			state.saveUsers(); // persist any profile edits
+			state.saveRequests(); // persist any new requests
+			state.saveReturns(); // persist any new returns
+			state.currentUser = null; // clear current session
+			onLogout.run(); // return to landing page
+		});
+
+		sidebar.getChildren().addAll(logoBox, btnOverview, btnRequest, btnTransactions, btnReturn, spacer, userCard, btnLogout); // assemble sidebar
+		return sidebar; // return sidebar node
+	}
+
+	// build a styled sidebar navigation button
+	private Button createNavButton(String label, String routeKey) { // define createnavbutton helper
+		Button btn = new Button(label); // create nav button
+		btn.setMaxWidth(Double.MAX_VALUE); // full sidebar width
+		btn.setAlignment(Pos.CENTER_LEFT); // left-align label
+		boolean selected = activeTab.equals(routeKey); // check active state
+		if (selected) { // active style
+			btn.setStyle("-fx-background-color: #1d6b50; -fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-font-size: 13px; -fx-background-radius: 9; -fx-padding: 11 16 11 16; -fx-cursor: hand;"); // highlighted green pill
+		} else { // inactive style
+			btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #cfe0d7; -fx-font-weight: bold; -fx-font-size: 13px; -fx-background-radius: 9; -fx-padding: 11 16 11 16; -fx-cursor: hand;"); // muted sage text
+		}
+		btn.setOnAction(e -> switchTab(routeKey)); // navigate on click
+		return btn; // return styled button
+	}
+
+	// build top header bar with page title and per-tab help button (no bell icon)
+	private HBox buildTopHeader() { // define buildtopheader helper
+		lblPageTitle = new Label("Farmer Overview"); // dynamic page heading
+		lblPageTitle.setStyle("-fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_DARK + ";"); // dark heading text
+
+		Region spacer = new Region(); // push help button right
+		HBox.setHgrow(spacer, Priority.ALWAYS); // expand spacer
+
+		Button btnHelp = new Button("? Help"); // per-tab manual help button
+		btnHelp.setStyle(state.outlineButtonStyle()); // outline style
+		btnHelp.setOnAction(e -> openTabHelp()); // show feature overview popup
+
+		HBox header = new HBox(12, lblPageTitle, spacer, btnHelp); // header bar container
+		header.setAlignment(Pos.CENTER_LEFT); // center vertically
+		header.setPadding(new Insets(18, 28, 18, 28)); // outer padding
+		header.setStyle("-fx-background-color: #ffffff; -fx-border-color: transparent transparent #e3ebe6 transparent;"); // white header bar
+		return header; // return header bar
+	}
+
+	// switch active center view and update sidebar highlight
+	private void switchTab(String routeKey) { // define switchtab helper
+		this.activeTab = routeKey; // update active route
+		shellRoot.setLeft(buildSidebar()); // refresh sidebar highlight
+
+		Node content; // target tab view
+		switch (routeKey) { // continue statement
+			case "Request": // continue statement
+				lblPageTitle.setText("Request Seeds"); // update header title
+				content = createFarmerRequestPane(); // build request view
+				break; // exit switch block
+			case "Transactions": // continue statement
+				lblPageTitle.setText("My Transactions"); // update header title
+				content = createFarmerTransactionsPane(); // build transactions view
+				break; // exit switch block
+			case "Return": // continue statement
+				lblPageTitle.setText("Return Seeds"); // update header title
+				content = createFarmerReturnPane(); // build return view
+				break; // exit switch block
+			default: // default route case
+				lblPageTitle.setText("Farmer Overview"); // update header title
+				content = createFarmerOverviewPane(); // build overview dashboard
+				break; // exit switch block
 		}
 
-		Button btnGoReturn = new Button(state.t("Submit a Seed Return  \u2192", "Magbalik ng Binhi  \u2192"));
-		btnGoReturn.setStyle(state.primaryButtonStyle());
-		btnGoReturn.setDisable(!state.currentUser.isVerified());
-		btnGoReturn.setOnAction(e -> {
-			state.currentRoute = "Transactions";
-			showFarmerShell();
-		});
+		ScrollPane scroller = new ScrollPane(content); // wrap view in scroll pane
+		scroller.setFitToWidth(true); // match viewport width
+		scroller.setStyle("-fx-background: " + AppState.BG_PAGE + "; -fx-background-color: " + AppState.BG_PAGE + ";"); // match page background
+		shellRoot.setCenter(scroller); // place in center
+	}
 
-		deadlinesCard.getChildren().addAll(lblDeadlines, deadlineList, btnGoReturn);
-
-		// Right Card: Editable Basic Information
-		VBox profileCard = new VBox(10);
-		profileCard.setStyle(state.cardStyle());
-		profileCard.setPrefWidth(420);
-
-		Label lblProfileTitle = new Label("Basic Information");
-		lblProfileTitle.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
-
-		TextField txtPhone = new TextField(state.currentUser.getPhoneNumber());
-		txtPhone.setStyle(state.inputStyle());
-
-		TextField txtEmail = new TextField(state.currentUser.getEmail());
-		txtEmail.setStyle(state.inputStyle());
-
-		TextField txtFarmName = new TextField(state.currentUser.getFarmName());
-		txtFarmName.setStyle(state.inputStyle());
-
-		TextField txtFarmAddress = new TextField(state.currentUser.getFarmAddress());
-		txtFarmAddress.setStyle(state.inputStyle());
-
-		Label lblSaveMsg = new Label();
-		lblSaveMsg.setStyle("-fx-text-fill: " + state.PRIMARY_GREEN + "; -fx-font-weight: bold; -fx-font-size: 12px;");
-
-		Button btnSaveInfo = new Button(state.t("Save Profile Changes", "I-save ang Profile"));
-		btnSaveInfo.setStyle(state.primaryButtonStyle());
-		btnSaveInfo.setOnAction(e -> {
-			state.currentUser.setPhoneNumber(txtPhone.getText().trim());
-			state.currentUser.setEmail(txtEmail.getText().trim());
-			state.currentUser.setFarmName(txtFarmName.getText().trim());
-			state.currentUser.setFarmAddress(txtFarmAddress.getText().trim());
-			state.saveUsers(state.userPath, state.users);
-			lblSaveMsg.setText(state.t("Profile updated successfully!", "Na-save na ang updated info mo!"));
-		});
-
-		profileCard.getChildren().addAll(
-				lblProfileTitle,
-				state.wrapField(state.t("Phone Number", "Cellphone Number"), txtPhone),
-				state.wrapField(state.t("Email Address", "Email Address"), txtEmail),
-				state.wrapField(state.t("Farm Name", "Pangalan ng Sakahan"), txtFarmName),
-				state.wrapField(state.t("Farm Address", "Address ng Sakahan"), txtFarmAddress),
-				lblSaveMsg,
-				btnSaveInfo);
-
-		midRow.getChildren().addAll(deadlinesCard, profileCard);
-		container.getChildren().addAll(topCards, midRow);
-
-		ScrollPane scroll = new ScrollPane(container);
-		scroll.setFitToWidth(true);
-		return scroll;
+	// open per-tab feature overview dialog when Help is clicked
+	private void openTabHelp() { // define opentabhelp helper
+		switch (activeTab) { // continue statement
+			case "Request": // continue statement
+				state.showTabHelpDialog("Request Seeds", // pass value
+						"\u2022 Select an available seed lot from the catalog table.\n" // continue statement
+								+ "\u2022 Enter the weight in kilograms and your planting purpose.\n" // continue statement
+								+ "\u2022 Total active seed loans per farm cannot exceed \u20b110,000.00."); // request help text
+				break; // exit switch block
+			case "Transactions": // continue statement
+				state.showTabHelpDialog("My Transactions", // pass value
+						"\u2022 Track the approval status and return due dates of your seed requests.\n" // continue statement
+								+ "\u2022 View the inspection status of all harvest seed returns you submitted."); // transactions help text
+				break; // exit switch block
+			case "Return": // continue statement
+				state.showTabHelpDialog("Return Seeds", // pass value
+						"\u2022 Select an approved seed loan from the list to submit your post-harvest repayment.\n" // continue statement
+								+ "\u2022 Enter the weight of viable seeds returned (including agreed seed interest).\n" // continue statement
+								+ "\u2022 Once accepted by an admin, any overdue status on that loan is cleared."); // return help text
+				break; // exit switch block
+			default: // default route case
+				state.showTabHelpDialog("Farmer Overview", // pass value
+						"\u2022 Check your Pending Seed Requests, Pending Seed Returns, and Deadlines of Returns at a glance.\n" // continue statement
+								+ "\u2022 Update your Basic Information (name, contact details, farm name, and farm address) below."); // overview help text
+				break; // exit switch block
+		}
 	}
 
 	// =========================================================================
-	// FARMER REQUESTS VIEW (SLIDE 11: SELECTED SEEDS + REQUEST SUMMARY)
+	// 1. OVERVIEW TAB (Pending Requests, Pending Returns, Deadlines of Returns, Basic Information)
 	// =========================================================================
-	private VBox buildFarmerRequestsView() {
-		VBox container = new VBox(18);
+	private VBox createFarmerOverviewPane() { // define createfarmeroverviewpane helper
+		String username = state.currentUser.getUsername(); // logged-in username
 
-		HBox splitCards = new HBox(18);
-		VBox.setVgrow(splitCards, Priority.ALWAYS);
+		long pendingReqCount = state.requestData.stream() // continue statement
+				.filter(r -> r.getFarmer().equalsIgnoreCase(username) && "Pending".equalsIgnoreCase(r.getStatus())) // continue statement
+				.count(); // count farmer's pending requests
 
-		// Left Card: Available Seeds Table ("Selected Seeds")
-		VBox leftCard = new VBox(14);
-		leftCard.setStyle(state.cardStyle());
-		HBox.setHgrow(leftCard, Priority.ALWAYS);
-		leftCard.setPrefWidth(620);
+		long pendingRetCount = state.returnData.stream() // continue statement
+				.filter(r -> r.getFarmer().equalsIgnoreCase(username) && "Pending".equalsIgnoreCase(r.getStatus())) // continue statement
+				.count(); // count farmer's pending returns
 
-		Label lblLeft = new Label(state.t("Selected Seeds (Browse Seed Bank)", "Pumili ng Binhi sa Seed Bank"));
-		lblLeft.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
+		List<SeedRequest> activeLoans = state.requestData.stream() // continue statement
+				.filter(r -> r.getFarmer().equalsIgnoreCase(username) && "Approved".equalsIgnoreCase(r.getStatus())) // continue statement
+				.collect(Collectors.toList()); // active loans with upcoming or overdue deadlines
 
-		TableView<Product> seedTable = new TableView<>(state.productData);
-		seedTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-		VBox.setVgrow(seedTable, Priority.ALWAYS);
+		double activeLoanPhp = state.getFarmerActiveLoanValue(username); // current php loan usage out of 10,000
 
-		TableColumn<Product, String> colLot = new TableColumn<>("Lot ID");
-		colLot.setCellValueFactory(new PropertyValueFactory<>("lotCode"));
+		VBox cardReq = buildStatCard("Pending Seed Requests", String.valueOf(pendingReqCount), "Awaiting admin approval", "#9a6700"); // card 1
+		VBox cardRet = buildStatCard("Pending Seed Returns", String.valueOf(pendingRetCount), "Awaiting seed inspection", "#17684d"); // card 2
+		VBox cardDue = buildStatCard("Deadlines of Returns", String.valueOf(activeLoans.size()), "Active loans to repay", "#b42318"); // card 3
+		VBox cardCap = buildStatCard("Loan Limit Used", "\u20b1" + String.format("%,.0f", activeLoanPhp), "of \u20b110,000 max per farm", AppState.FOREST_DARK); // card 4
 
-		TableColumn<Product, String> colName = new TableColumn<>(state.t("Seed", "Binhi"));
-		colName.setCellValueFactory(new PropertyValueFactory<>("name"));
+		HBox statsRow = new HBox(16, cardReq, cardRet, cardDue, cardCap); // top KPI row
+		for (Node n : statsRow.getChildren()) { // equal card widths
+			HBox.setHgrow(n, Priority.ALWAYS); // expand evenly
+		}
 
-		TableColumn<Product, String> colVar = new TableColumn<>(state.t("Variety", "Variety"));
-		colVar.setCellValueFactory(new PropertyValueFactory<>("variety"));
+		// Deadlines of Returns Card
+		Label lblDeadlines = new Label("Deadlines of Returns"); // section title
+		lblDeadlines.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_DARK + ";"); // bold heading
 
-		TableColumn<Product, String> colAvail = new TableColumn<>(state.t("Available", "Available"));
-		colAvail.setCellValueFactory(new PropertyValueFactory<>("quantityLabel"));
+		Button btnSubmitReturn = new Button("Return Seeds \u2192"); // shortcut to return seeds tab
+		btnSubmitReturn.setStyle(state.outlineButtonStyle()); // outline style
+		btnSubmitReturn.setOnAction(e -> switchTab("Return")); // navigate to return view
 
-		TableColumn<Product, String> colLoc = new TableColumn<>(state.t("Location", "Lokasyon"));
-		colLoc.setCellValueFactory(new PropertyValueFactory<>("location"));
+		Region spacer = new Region(); // spacer
+		HBox.setHgrow(spacer, Priority.ALWAYS); // expand spacer
+		HBox deadlineHeader = new HBox(10, lblDeadlines, spacer, btnSubmitReturn); // header bar
+		deadlineHeader.setAlignment(Pos.CENTER_LEFT); // center vertically
 
-		seedTable.getColumns().addAll(colLot, colName, colVar, colAvail, colLoc);
+		TableView<SeedRequest> deadlineTable = new TableView<>(); // active return deadlines table
+		deadlineTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); // stretch columns
+		deadlineTable.setPrefHeight(195); // table height
+		deadlineTable.setPlaceholder(new Label("No active seed loans requiring return right now.")); // empty message
 
-		// Right Card: Request Summary Form
-		VBox rightCard = new VBox(14);
-		rightCard.setStyle(state.cardStyle());
-		rightCard.setPrefWidth(360);
+		TableColumn<SeedRequest, Integer> colReqId = new TableColumn<>("Request ID"); // request id column
+		colReqId.setCellValueFactory(new PropertyValueFactory<>("requestId")); // bind requestId
 
-		Label lblRight = new Label(state.t("Request Summary", "Buod ng Request"));
-		lblRight.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
+		TableColumn<SeedRequest, String> colSeed = new TableColumn<>("Seed Variety"); // seed column
+		colSeed.setCellValueFactory(new PropertyValueFactory<>("seedLabel")); // bind seedLabel
 
-		Label lblSelected = new Label(state.t("Selected Lot: None (Click a row on the left)", "Napiling Lot: Wala pa (Mag-click sa table sa kaliwa)"));
-		lblSelected.setWrapText(true);
-		lblSelected.setStyle("-fx-font-weight: bold; -fx-text-fill: " + state.PRIMARY_GREEN + "; -fx-font-size: 13px;");
+		TableColumn<SeedRequest, Double> colQty = new TableColumn<>("Borrowed (kg)"); // amount column
+		colQty.setCellValueFactory(new PropertyValueFactory<>("amount")); // bind amount
 
-		seedTable.getSelectionModel().selectedItemProperty().addListener((obs, oldP, newP) -> {
-			if (newP != null) {
-				lblSelected.setText(state.t("Selected: ", "Napili: ") + newP.getLotCode() + " \u2022 " + newP.getName() + " (" + newP.getVariety() + ")");
+		TableColumn<SeedRequest, String> colDueDate = new TableColumn<>("Return Deadline"); // due date column
+		colDueDate.setCellValueFactory(new PropertyValueFactory<>("dueDate")); // bind dueDate
+
+		TableColumn<SeedRequest, String> colDueState = new TableColumn<>("Deadline Status"); // overdue or on-schedule badge
+		colDueState.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().isOverdue() ? "OVERDUE" : "ACTIVE")); // compute deadline status
+		colDueState.setCellFactory(state.createStatusBadgeCell()); // render status badge
+
+		deadlineTable.getColumns().addAll(colReqId, colSeed, colQty, colDueDate, colDueState); // attach columns
+		deadlineTable.getItems().setAll(activeLoans); // populate active loans
+
+		VBox deadlinesCard = new VBox(12, deadlineHeader, deadlineTable); // wrap in white card
+		deadlinesCard.setStyle(state.cardStyle()); // card style
+
+		// Basic Information Card (title says "Basic Information" without "(editable)")
+		Label lblBasicInfo = new Label("Basic Information"); // clean section heading without "(editable)"
+		lblBasicInfo.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_DARK + ";"); // bold heading
+
+		User u = state.currentUser; // current farmer object
+		GridPane formGrid = new GridPane(); // two-column profile form
+		formGrid.setHgap(16); // horizontal gap
+		formGrid.setVgap(10); // vertical gap
+		ColumnConstraints c1 = new ColumnConstraints(140); // label column width
+		ColumnConstraints c2 = new ColumnConstraints(280); // input column width
+		ColumnConstraints c3 = new ColumnConstraints(140); // second label column width
+		ColumnConstraints c4 = new ColumnConstraints(280); // second input column width
+		formGrid.getColumnConstraints().addAll(c1, c2, c3, c4); // apply column widths
+
+		TextField tfFullName = new TextField(u.getFullName()); // full name field
+		tfFullName.setStyle(state.inputStyle()); // input css
+		TextField tfPhone = new TextField(u.getPhone()); // phone field
+		tfPhone.setStyle(state.inputStyle()); // input css
+		TextField tfEmail = new TextField(u.getEmail()); // email field
+		tfEmail.setStyle(state.inputStyle()); // input css
+		TextField tfFarmName = new TextField(u.getFarmName()); // farm name field
+		tfFarmName.setStyle(state.inputStyle()); // input css
+		TextField tfFarmAddress = new TextField(u.getFarmAddress()); // farm address field
+		tfFarmAddress.setStyle(state.inputStyle()); // input css
+		TextField tfRsbsa = new TextField(u.getRsbsaNumber()); // rsbsa field
+		tfRsbsa.setStyle(state.inputStyle()); // input css
+
+		formGrid.addRow(0, new Label("Full Name:"), tfFullName, new Label("Farm Name:"), tfFarmName); // row 0
+		formGrid.addRow(1, new Label("Phone Number:"), tfPhone, new Label("Farm Address:"), tfFarmAddress); // row 1
+		formGrid.addRow(2, new Label("Email Address:"), tfEmail, new Label("RSBSA Number:"), tfRsbsa); // row 2
+
+		Button btnSaveInfo = new Button("Save Changes"); // save profile updates button
+		btnSaveInfo.setStyle(state.primaryButtonStyle()); // primary style
+		Label lblProfileMsg = new Label(); // save confirmation label
+		lblProfileMsg.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppState.PRIMARY_GREEN + ";"); // green status text
+
+		btnSaveInfo.setOnAction(e -> { // attach click listener
+			if (tfFullName.getText().trim().isEmpty() || tfPhone.getText().trim().isEmpty() // continue statement
+					|| tfEmail.getText().trim().isEmpty() || tfFarmAddress.getText().trim().isEmpty()) { // check required fields
+				lblProfileMsg.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b42318;"); // red error text
+				lblProfileMsg.setText("Please complete your name, phone, email, and farm address."); // error message
+				return; // abort
 			}
+			u.setFullName(tfFullName.getText().trim()); // update full name
+			u.setPhone(tfPhone.getText().trim()); // update phone
+			u.setEmail(tfEmail.getText().trim()); // update email
+			u.setFarmName(tfFarmName.getText().trim()); // update farm name
+			u.setFarmAddress(tfFarmAddress.getText().trim()); // update farm address
+			u.setRsbsaNumber(tfRsbsa.getText().trim()); // update rsbsa
+			state.saveUsers(); // save updated profile to users.txt
+			shellRoot.setLeft(buildSidebar()); // refresh sidebar name
+			lblProfileMsg.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppState.PRIMARY_GREEN + ";"); // green success text
+			lblProfileMsg.setText("Basic information saved."); // confirmation text
 		});
 
-		TextField txtAmount = new TextField();
-		txtAmount.setPromptText("e.g. 25.0");
-		txtAmount.setStyle(state.inputStyle());
+		HBox profileFooter = new HBox(12, btnSaveInfo, lblProfileMsg); // button and feedback row
+		profileFooter.setAlignment(Pos.CENTER_LEFT); // center vertically
 
-		TextField txtPurpose = new TextField();
-		txtPurpose.setPromptText(state.t("e.g. Dry season planting", "hal. Pagtatanim ngayong tag-init"));
-		txtPurpose.setStyle(state.inputStyle());
+		VBox basicInfoCard = new VBox(12, lblBasicInfo, formGrid, profileFooter); // wrap in white card
+		basicInfoCard.setStyle(state.cardStyle()); // card style
 
-		Label lblWarn = new Label();
-		lblWarn.setWrapText(true);
-		lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+		VBox root = new VBox(20, statsRow, deadlinesCard, basicInfoCard); // assemble overview page
+		root.setPadding(new Insets(24, 28, 28, 28)); // outer margins
+		return root; // return overview pane
+	}
 
-		Button btnSubmit = new Button(state.t("\ud83c\udf31  Submit Seed Request", "\ud83c\udf31  I-submit ang Request"));
-		btnSubmit.setMaxWidth(Double.MAX_VALUE);
-		btnSubmit.setStyle(state.primaryButtonStyle());
-		btnSubmit.setDisable(!state.currentUser.isVerified());
+	// helper to build a KPI stat card
+	private VBox buildStatCard(String title, String value, String subtitle, String accentColor) { // define buildstatcard helper
+		Label lblTitle = new Label(title); // card title
+		lblTitle.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_MUTED + ";"); // muted title
 
-		btnSubmit.setOnAction(e -> {
-			if (!state.currentUser.isVerified()) {
-				lblWarn.setStyle("-fx-text-fill: #dc3545; -fx-font-weight: bold;");
-				lblWarn.setText(state.t("Your account must be verified by an Admin before requesting seeds.", "Kailangan munang ma-verify ng Admin ang account mo bago makahiram ng binhi."));
-				return;
-			}
-			Product chosen = seedTable.getSelectionModel().getSelectedItem();
-			if (chosen == null) {
-				lblWarn.setStyle("-fx-text-fill: #dc3545; -fx-font-weight: bold;");
-				lblWarn.setText(state.t("Error: Select a seed lot from the table first.", "Pumili muna ng seed lot sa table sa kaliwa."));
-				return;
-			}
-			try {
-				double amt = Double.parseDouble(txtAmount.getText().trim());
-				String purpose = txtPurpose.getText().trim();
-				if (amt <= 0 || purpose.isEmpty()) {
-					lblWarn.setStyle("-fx-text-fill: #dc3545; -fx-font-weight: bold;");
-					lblWarn.setText(state.t("Error: Enter a positive quantity and planting purpose.", "Oops! Maglagay ng tamang dami at dahilan ng pagtatanim."));
-					return;
+		Label lblValue = new Label(value); // main metric number
+		lblValue.setStyle("-fx-font-size: 25px; -fx-font-weight: bold; -fx-text-fill: " + accentColor + ";"); // colored value
+
+		Label lblSub = new Label(subtitle); // supporting subtitle
+		lblSub.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppState.TEXT_MUTED + ";"); // muted caption
+
+		VBox card = new VBox(6, lblTitle, lblValue, lblSub); // stack labels
+		card.setStyle(state.cardStyle()); // card style
+		return card; // return stat card
+	}
+
+	// =========================================================================
+	// 2. REQUEST SEEDS TAB
+	// =========================================================================
+	private VBox createFarmerRequestPane() { // define createfarmerrequestpane helper
+		TableView<Product> table = new TableView<>(); // available seed lots table
+		table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); // stretch columns
+		table.setPrefHeight(290); // table height
+
+		TableColumn<Product, Integer> colLotID = new TableColumn<>("Lot ID"); // lot id column
+		colLotID.setCellValueFactory(new PropertyValueFactory<>("lotID")); // bind lotID
+
+		TableColumn<Product, String> colName = new TableColumn<>("Seed Crop"); // crop name column
+		colName.setCellValueFactory(new PropertyValueFactory<>("name")); // bind name
+
+		TableColumn<Product, String> colVariety = new TableColumn<>("Variety"); // variety column
+		colVariety.setCellValueFactory(new PropertyValueFactory<>("variety")); // bind variety
+
+		TableColumn<Product, Double> colAmount = new TableColumn<>("Available (kg)"); // available weight column
+		colAmount.setCellValueFactory(new PropertyValueFactory<>("amount")); // bind amount
+
+		TableColumn<Product, Double> colPrice = new TableColumn<>("Value / kg (\u20b1)"); // unit value column
+		colPrice.setCellValueFactory(new PropertyValueFactory<>("price")); // bind price
+
+		TableColumn<Product, String> colLocation = new TableColumn<>("Storage Location"); // location column
+		colLocation.setCellValueFactory(new PropertyValueFactory<>("location")); // bind location
+
+		table.getColumns().addAll(colLotID, colName, colVariety, colAmount, colPrice, colLocation); // add columns
+		table.setItems(state.productData); // bind shared inventory
+
+		Label labelAmount = new Label("Amount (kg):"); // amount label
+		labelAmount.setMinWidth(110); // label width
+		TextField textAmount = new TextField(); // amount input
+		textAmount.setPromptText("Enter kilograms to borrow"); // placeholder
+		textAmount.setStyle(state.inputStyle()); // input css
+		HBox hBoxAmount = new HBox(10, labelAmount, textAmount); // amount row
+		hBoxAmount.setAlignment(Pos.CENTER_LEFT); // align vertically
+
+		Label labelPurpose = new Label("Planting Purpose:"); // purpose label
+		labelPurpose.setMinWidth(110); // label width
+		TextField textPurpose = new TextField(); // purpose input
+		textPurpose.setPromptText("e.g., Wet season vegetable plot planting"); // placeholder
+		textPurpose.setStyle(state.inputStyle()); // input css
+		textPurpose.setPrefWidth(320); // input width
+		HBox hBoxPurpose = new HBox(10, labelPurpose, textPurpose); // purpose row
+		hBoxPurpose.setAlignment(Pos.CENTER_LEFT); // align vertically
+
+		Label lblEstimate = new Label("Estimated Loan Value: \u20b10.00 (Max limit per farm: \u20b110,000.00)"); // live php value preview
+		lblEstimate.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_MUTED + ";"); // muted bold text
+
+		Runnable refreshEstimate = () -> { // update live php loan calculation
+			Product sel = table.getSelectionModel().getSelectedItem(); // read selected lot
+			try { // attempt risky block
+				double kg = Double.parseDouble(textAmount.getText().trim()); // parse entered weight
+				if (sel != null && kg > 0) { // compute php total
+					double val = state.round2(kg * sel.getPrice()); // weight times unit price
+					lblEstimate.setText("Estimated Loan Value: \u20b1" + String.format("%,.2f", val) + " (Max limit per farm: \u20b110,000.00)"); // update label
+					return; // done
 				}
-				if (amt > chosen.getAmount()) {
-					lblWarn.setStyle("-fx-text-fill: #dc3545; -fx-font-weight: bold;");
-					lblWarn.setText(state.t("Error: Requested amount exceeds available stock.", "Sobra sa available stock ang hinihingi mo."));
-					return;
+			} catch (NumberFormatException ignored) { // handle exception
+			}
+			lblEstimate.setText("Estimated Loan Value: \u20b10.00 (Max limit per farm: \u20b110,000.00)"); // default text
+		};
+
+		textAmount.textProperty().addListener((o, a, b) -> refreshEstimate.run()); // update estimate as farmer types
+		table.getSelectionModel().selectedItemProperty().addListener((o, a, b) -> refreshEstimate.run()); // update estimate when row changes
+
+		Button btnSubmit = new Button("Submit Seed Request"); // submit request button
+		btnSubmit.setStyle(state.primaryButtonStyle()); // primary style
+		Button btnRefresh = new Button("Refresh Catalog"); // refresh button
+		btnRefresh.setStyle(state.outlineButtonStyle()); // outline style
+		Label lblWarn = new Label(); // validation or confirmation label
+		lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;"); // bold feedback
+
+		btnRefresh.setOnAction(e -> table.refresh()); // refresh table cells
+
+		btnSubmit.setOnAction(e -> { // attach click listener
+			Product product = table.getSelectionModel().getSelectedItem(); // get selected seed lot
+			if (product == null) { // check selection
+				lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b42318;"); // red text
+				lblWarn.setText("Error: Please select a seed lot first."); // error text
+				return; // abort
+			}
+
+			String amountStr = textAmount.getText().trim(); // read amount
+			String purpose = textPurpose.getText().trim(); // read purpose
+			if (amountStr.isEmpty() || purpose.isEmpty()) { // check required inputs
+				lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b42318;"); // red text
+				lblWarn.setText("Error: Amount and planting purpose are required!"); // error text
+				return; // abort
+			}
+
+			try { // attempt risky block
+				double amount = Double.parseDouble(amountStr); // parse weight
+				if (amount <= 0) { // must be positive
+					lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b42318;"); // red text
+					lblWarn.setText("Error: Amount must be greater than zero."); // error text
+					return; // abort
+				}
+				if (amount > product.getAmount()) { // check available stock
+					lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b42318;"); // red text
+					lblWarn.setText("Error: Not enough stock available in this lot."); // error text
+					return; // abort
 				}
 
-				state.requestData.add(new SeedRequest(state.nextRequestId++, state.currentUser.getUsername(), state.currentUser.getFarmName(),
-						chosen.getLotID(), chosen.getName(), chosen.getVariety(), state.round2(amt), chosen.getPrice(),
-						purpose, "Pending", LocalDate.now(), LocalDate.now().plusDays(90)));
+				double requestPhpValue = state.round2(amount * product.getPrice()); // compute php value of this request
+				double currentUsed = state.getFarmerActiveLoanValue(state.currentUser.getUsername()); // check farmer's existing active/pending loans
+				if (currentUsed + requestPhpValue > AppState.MAX_LOAN_VALUE_PHP) { // enforce 10,000 php per-farm ceiling
+					lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b42318;"); // red text
+					lblWarn.setText("Error: Request exceeds the \u20b110,000.00 borrowing limit per farm."); // cap exceeded notice
+					return; // abort
+				}
 
-				lblWarn.setStyle("-fx-text-fill: " + state.PRIMARY_GREEN + "; -fx-font-weight: bold;");
-				lblWarn.setText(state.t("Request submitted! Track status under Transactions.", "Na-submit na ang request! I-check ang status sa Transactions."));
-				txtAmount.clear();
-				txtPurpose.clear();
-			} catch (NumberFormatException ex) {
-				lblWarn.setStyle("-fx-text-fill: #dc3545; -fx-font-weight: bold;");
-				lblWarn.setText(state.t("Error: Quantity must be a valid number.", "Oops! Dapat number ang dami."));
+				state.requestData.add(new SeedRequest( // pass value
+						state.nextRequestId++, // next request id
+						state.currentUser.getUsername(), // farmer username
+						product.getLotID(), // lot id
+						product.getName(), // crop name
+						product.getVariety(), // variety
+						state.round2(amount), // weight in kg
+						requestPhpValue, // php value
+						purpose, // planting purpose
+						"Pending", // initial pending status
+						LocalDate.now().toString(), // today's date
+						"")); // due date set upon admin approval
+
+				state.saveRequests(); // persist to requests.txt
+				lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppState.PRIMARY_GREEN + ";"); // green success text
+				lblWarn.setText("Seed request submitted! An administrator will review it shortly."); // confirmation message
+				textAmount.clear(); // reset amount input
+				textPurpose.clear(); // reset purpose input
+			} catch (NumberFormatException ex) { // handle exception
+				lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b42318;"); // red text
+				lblWarn.setText("Error: Amount must be a valid number!"); // parse error
 			}
 		});
 
-		rightCard.getChildren().addAll(lblRight, lblSelected,
-				state.wrapField(state.t("Quantity (kg)", "Dami (kg)"), txtAmount),
-				state.wrapField(state.t("Planting Purpose", "Dahilan ng Pagtatanim"), txtPurpose),
-				lblWarn, btnSubmit);
+		HBox buttons = new HBox(10, btnSubmit, btnRefresh); // action buttons
+		VBox card = new VBox(14, table, hBoxAmount, hBoxPurpose, lblEstimate, buttons, lblWarn); // white card wrapper
+		card.setStyle(state.cardStyle()); // card style
 
-		leftCard.getChildren().addAll(lblLeft, seedTable);
-		splitCards.getChildren().addAll(leftCard, rightCard);
-
-		container.getChildren().add(splitCards);
-		return container;
+		VBox root = new VBox(20, card); // main request pane
+		root.setPadding(new Insets(24, 28, 28, 28)); // outer margins
+		return root; // return request view
 	}
 
 	// =========================================================================
-	// FARMER TRANSACTIONS & RETURN SEEDS VIEW (SLIDE 12)
+	// 3. MY TRANSACTIONS TAB
 	// =========================================================================
-	private VBox buildFarmerTransactionsView() {
-		VBox container = new VBox(18);
+	private VBox createFarmerTransactionsPane() { // define createfarmertransactionspane helper
+		String username = state.currentUser.getUsername(); // current farmer username
 
-		long activeLoans = state.requestData.stream()
-				.filter(r -> r.getFarmer().equalsIgnoreCase(state.currentUser.getUsername()) && "Approved".equalsIgnoreCase(r.getStatus()))
-				.count();
-		long pendingReqs = state.requestData.stream()
-				.filter(r -> r.getFarmer().equalsIgnoreCase(state.currentUser.getUsername()) && "Pending".equalsIgnoreCase(r.getStatus()))
-				.count();
-		long overdueCount = state.requestData.stream()
-				.filter(r -> r.getFarmer().equalsIgnoreCase(state.currentUser.getUsername()) && r.isOverdue())
-				.count();
+		FilteredList<SeedRequest> myRequests = new FilteredList<>(state.requestData, // continue statement
+				request -> request.getFarmer().equalsIgnoreCase(username)); // filter farmer's requests
 
-		HBox topCards = new HBox(16);
-		topCards.getChildren().addAll(
-				state.createStatCard(state.t("Active Loans", "Mga Active na Hiram"), String.valueOf(activeLoans), state.t("Approved seed lots", "Na-approve na binhi"), state.PRIMARY_GREEN),
-				state.createStatCard(state.t("Pending Requests", "Mga Pending na Request"), String.valueOf(pendingReqs), state.t("Awaiting approval", "Pending pa ang approval"), "#d97706"),
-				state.createStatCard(state.t("Due / Overdue", "Due Date / Overdue"), String.valueOf(overdueCount), state.t("Requires seed return", "Kailangang ibalik pagka-ani"), "#dc3545"));
+		Label lblRequests = new Label("My Seed Requests"); // section 1 heading
+		lblRequests.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_DARK + ";"); // bold heading
 
-		VBox card = new VBox(14);
-		card.setStyle(state.cardStyle());
-		VBox.setVgrow(card, Priority.ALWAYS);
+		TableView<SeedRequest> requestTable = new TableView<>(); // farmer requests table
+		requestTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); // stretch columns
+		requestTable.setPrefHeight(225); // table height
+		requestTable.setPlaceholder(new Label("You have no seed requests yet.")); // empty message
 
-		HBox searchBar = new HBox(12);
-		searchBar.setAlignment(Pos.CENTER_LEFT);
+		TableColumn<SeedRequest, Integer> colRequestID = new TableColumn<>("Request ID"); // id column
+		colRequestID.setCellValueFactory(new PropertyValueFactory<>("requestId")); // bind requestId
 
-		TextField txtSearch = new TextField();
-		txtSearch.setPromptText(state.t("\ud83d\udd0d  Search your transactions...", "\ud83d\udd0d  Maghanap sa mga transaksyon mo..."));
-		txtSearch.setPrefWidth(360);
-		txtSearch.setStyle(state.inputStyle());
+		TableColumn<SeedRequest, String> colSeed = new TableColumn<>("Seed"); // seed column
+		colSeed.setCellValueFactory(new PropertyValueFactory<>("seedLabel")); // bind seedLabel
 
-		Region spacer = new Region();
-		HBox.setHgrow(spacer, Priority.ALWAYS);
+		TableColumn<SeedRequest, Double> colAmount = new TableColumn<>("Amount (kg)"); // weight column
+		colAmount.setCellValueFactory(new PropertyValueFactory<>("amount")); // bind amount
 
-		Button btnReturnSeed = new Button(state.t("\u21a9  Submit Seed Return", "\u21a9  Magbalik ng Binhi"));
-		btnReturnSeed.setStyle(state.primaryButtonStyle());
-		btnReturnSeed.setDisable(!state.currentUser.isVerified());
-		btnReturnSeed.setOnAction(e -> openFarmerReturnModal());
-
-		searchBar.getChildren().addAll(txtSearch, spacer, btnReturnSeed);
-
-		FilteredList<SeedRequest> myReqs = new FilteredList<>(state.requestData,
-				r -> r.getFarmer().equalsIgnoreCase(state.currentUser.getUsername()));
-
-		txtSearch.textProperty().addListener((obs, oldV, newV) -> {
-			String q = newV == null ? "" : newV.trim().toLowerCase();
-			myReqs.setPredicate(r -> r.getFarmer().equalsIgnoreCase(state.currentUser.getUsername())
-					&& (q.isEmpty() || r.getTransactionCode().toLowerCase().contains(q)
-							|| r.getSeedLabel().toLowerCase().contains(q)
-							|| r.getStatus().toLowerCase().contains(q)));
+		TableColumn<SeedRequest, String> colDue = new TableColumn<>("Return Due Date"); // due date column
+		colDue.setCellValueFactory(cell -> { // bind column value
+			SeedRequest r = cell.getValue(); // read row request
+			if (r.getDueDate() == null || r.getDueDate().isBlank()) { // no deadline yet
+				return new SimpleStringProperty("-"); // dash placeholder
+			}
+			return new SimpleStringProperty(r.isOverdue() ? r.getDueDate() + " (OVERDUE)" : r.getDueDate()); // highlight overdue dates
 		});
 
-		TableView<SeedRequest> reqTable = new TableView<>(myReqs);
-		reqTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-		reqTable.setPrefHeight(210);
+		TableColumn<SeedRequest, String> colPurpose = new TableColumn<>("Purpose"); // purpose column
+		colPurpose.setCellValueFactory(new PropertyValueFactory<>("purpose")); // bind purpose
 
-		TableColumn<SeedRequest, String> colTx = new TableColumn<>(state.t("Transaction ID", "Transaction ID"));
-		colTx.setCellValueFactory(new PropertyValueFactory<>("transactionCode"));
+		TableColumn<SeedRequest, String> colStatus = new TableColumn<>("Status"); // status badge column
+		colStatus.setCellValueFactory(new PropertyValueFactory<>("status")); // bind status
+		colStatus.setCellFactory(state.createStatusBadgeCell()); // render status pill
 
-		TableColumn<SeedRequest, String> colSeed = new TableColumn<>(state.t("Seed Product", "Binhi"));
-		colSeed.setCellValueFactory(new PropertyValueFactory<>("seedLabel"));
+		requestTable.getColumns().addAll(colRequestID, colSeed, colAmount, colDue, colPurpose, colStatus); // add columns
+		requestTable.setItems(myRequests); // bind filtered list
 
-		TableColumn<SeedRequest, String> colQty = new TableColumn<>(state.t("Quantity", "Dami"));
-		colQty.setCellValueFactory(new PropertyValueFactory<>("quantityLabel"));
+		FilteredList<SeedReturn> myReturns = new FilteredList<>(state.returnData, // continue statement
+				ret -> ret.getFarmer().equalsIgnoreCase(username)); // filter farmer's returns
 
-		TableColumn<SeedRequest, String> colDue = new TableColumn<>(state.t("Due Date", "Due Date"));
-		colDue.setCellValueFactory(c -> new SimpleStringProperty(
-				c.getValue().getDueDate() == null ? "-" : c.getValue().getDueDate().format(state.DATE_FMT)));
+		Label lblReturns = new Label("My Seed Returns"); // section 2 heading
+		lblReturns.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + AppState.TEXT_DARK + ";"); // bold heading
 
-		TableColumn<SeedRequest, String> colStatus = new TableColumn<>(state.t("Status", "Status"));
-		colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
-		colStatus.setCellFactory(col -> state.createStatusBadgeCell());
+		TableView<SeedReturn> returnTable = new TableView<>(); // farmer returns table
+		returnTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); // stretch columns
+		returnTable.setPrefHeight(205); // table height
+		returnTable.setPlaceholder(new Label("You have no seed returns yet.")); // empty message
 
-		reqTable.getColumns().addAll(colTx, colSeed, colQty, colDue, colStatus);
+		TableColumn<SeedReturn, Integer> colReturnID = new TableColumn<>("Return ID"); // return id column
+		colReturnID.setCellValueFactory(new PropertyValueFactory<>("returnId")); // bind returnId
 
-		// My Seed Returns Table
-		Label lblMyRets = new Label(state.t("My Submitted Seed Returns", "Mga Ibinalik Kong Binhi"));
-		lblMyRets.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
+		TableColumn<SeedReturn, Integer> colLinkedReq = new TableColumn<>("Request ID"); // linked request id column
+		colLinkedReq.setCellValueFactory(new PropertyValueFactory<>("requestId")); // bind requestId
 
-		FilteredList<SeedReturn> myRets = new FilteredList<>(state.returnData,
-				r -> r.getFarmer().equalsIgnoreCase(state.currentUser.getUsername()));
-		TableView<SeedReturn> retTable = new TableView<>(myRets);
-		retTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-		retTable.setPrefHeight(150);
+		TableColumn<SeedReturn, String> colReturnSeed = new TableColumn<>("Seed"); // seed column
+		colReturnSeed.setCellValueFactory(new PropertyValueFactory<>("seedLabel")); // bind seedLabel
 
-		TableColumn<SeedReturn, String> colRetId = new TableColumn<>("Return ID");
-		colRetId.setCellValueFactory(new PropertyValueFactory<>("returnCode"));
+		TableColumn<SeedReturn, Double> colReturnAmount = new TableColumn<>("Returned (kg)"); // amount column
+		colReturnAmount.setCellValueFactory(new PropertyValueFactory<>("amount")); // bind amount
 
-		TableColumn<SeedReturn, String> colRetSeed = new TableColumn<>(state.t("Seed Product", "Binhi"));
-		colRetSeed.setCellValueFactory(new PropertyValueFactory<>("seedLabel"));
+		TableColumn<SeedReturn, String> colReturnDate = new TableColumn<>("Date Submitted"); // date column
+		colReturnDate.setCellValueFactory(new PropertyValueFactory<>("returnDate")); // bind returnDate
 
-		TableColumn<SeedReturn, String> colRetQty = new TableColumn<>(state.t("Returned Qty", "Ibinalik na Dami"));
-		colRetQty.setCellValueFactory(new PropertyValueFactory<>("quantityLabel"));
+		TableColumn<SeedReturn, String> colReturnStatus = new TableColumn<>("Status"); // status badge column
+		colReturnStatus.setCellValueFactory(new PropertyValueFactory<>("status")); // bind status
+		colReturnStatus.setCellFactory(state.createStatusBadgeCell()); // render status pill
 
-		TableColumn<SeedReturn, String> colRetStatus = new TableColumn<>(state.t("Status", "Status"));
-		colRetStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
-		colRetStatus.setCellFactory(col -> state.createStatusBadgeCell());
+		returnTable.getColumns().addAll(colReturnID, colLinkedReq, colReturnSeed, colReturnAmount, colReturnDate, colReturnStatus); // add columns
+		returnTable.setItems(myReturns); // bind filtered returns
 
-		retTable.getColumns().addAll(colRetId, colRetSeed, colRetQty, colRetStatus);
+		VBox reqCard = new VBox(12, lblRequests, requestTable); // requests white card
+		reqCard.setStyle(state.cardStyle()); // card style
 
-		card.getChildren().addAll(searchBar, reqTable, lblMyRets, retTable);
-		container.getChildren().addAll(topCards, card);
-		return container;
+		VBox retCard = new VBox(12, lblReturns, returnTable); // returns white card
+		retCard.setStyle(state.cardStyle()); // card style
+
+		VBox root = new VBox(20, reqCard, retCard); // main transactions container
+		root.setPadding(new Insets(24, 28, 28, 28)); // outer margins
+		return root; // return transactions pane
 	}
 
-	private void openFarmerReturnModal() {
-		Stage modal = new Stage();
-		modal.initOwner(state.mainStage);
-		modal.initModality(Modality.APPLICATION_MODAL);
-		modal.initStyle(StageStyle.UTILITY);
-		modal.setTitle(state.t("Return Harvested Seeds", "Magbalik ng Inaning Binhi"));
+	// =========================================================================
+	// 4. RETURN SEEDS TAB (Repay approved loans + seed interest)
+	// =========================================================================
+	private VBox createFarmerReturnPane() { // define createfarmerreturnpane helper
+		ObservableList<SeedRequest> returnable = FXCollections.observableArrayList(); // active approved requests awaiting return
+		loadReturnableRequests(returnable); // populate eligible loans
 
-		VBox card = new VBox(14);
-		card.setPadding(new Insets(24));
-		card.setStyle("-fx-background-color: " + state.bgCard() + ";");
+		Label lblInfo = new Label("Select an approved seed loan below to submit your post-harvest seed repayment (principal + seed interest)."); // helper note
+		lblInfo.setStyle("-fx-font-size: 13px; -fx-text-fill: " + AppState.TEXT_MUTED + ";"); // muted text
 
-		Label lblTitle = new Label(state.t("Submit Seed Return", "Magbalik ng Binhi"));
-		lblTitle.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: " + state.textPrimary() + ";");
+		TableView<SeedRequest> table = new TableView<>(); // returnable loans table
+		table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); // stretch columns
+		table.setPrefHeight(270); // table height
+		table.setPlaceholder(new Label("No approved requests are ready for return.")); // empty message
 
-		ComboBox<SeedRequest> loanCombo = new ComboBox<>();
-		for (SeedRequest r : state.requestData) {
-			if (r.getFarmer().equalsIgnoreCase(state.currentUser.getUsername()) && "Approved".equalsIgnoreCase(r.getStatus())) {
-				loanCombo.getItems().add(r);
+		TableColumn<SeedRequest, Integer> colRequestID = new TableColumn<>("Request ID"); // request id column
+		colRequestID.setCellValueFactory(new PropertyValueFactory<>("requestId")); // bind requestId
+
+		TableColumn<SeedRequest, String> colSeed = new TableColumn<>("Seed"); // seed column
+		colSeed.setCellValueFactory(new PropertyValueFactory<>("seedLabel")); // bind seedLabel
+
+		TableColumn<SeedRequest, Double> colAmount = new TableColumn<>("Borrowed (kg)"); // borrowed weight column
+		colAmount.setCellValueFactory(new PropertyValueFactory<>("amount")); // bind amount
+
+		TableColumn<SeedRequest, String> colDue = new TableColumn<>("Due Date"); // due date column
+		colDue.setCellValueFactory(cell -> { // bind column value
+			SeedRequest r = cell.getValue(); // read row request
+			return new SimpleStringProperty(r.isOverdue() ? r.getDueDate() + " (OVERDUE)" : r.getDueDate()); // mark overdue loans
+		});
+
+		TableColumn<SeedRequest, String> colPurpose = new TableColumn<>("Purpose"); // purpose column
+		colPurpose.setCellValueFactory(new PropertyValueFactory<>("purpose")); // bind purpose
+
+		table.getColumns().addAll(colRequestID, colSeed, colAmount, colDue, colPurpose); // add columns
+		table.setItems(returnable); // bind eligible loans
+
+		Label labelAmount = new Label("Returned Seeds (kg):"); // amount input label
+		labelAmount.setMinWidth(145); // label width
+		TextField textAmount = new TextField(); // returned weight input
+		textAmount.setPromptText("e.g. borrowed kg + 5% seed interest"); // placeholder hint
+		textAmount.setStyle(state.inputStyle()); // input css
+		HBox hBoxAmount = new HBox(10, labelAmount, textAmount); // amount row
+		hBoxAmount.setAlignment(Pos.CENTER_LEFT); // center vertically
+
+		Button btnReturn = new Button("Submit Harvest Return"); // submit return button
+		btnReturn.setStyle(state.primaryButtonStyle()); // primary style
+		Label lblWarn = new Label(); // feedback label
+		lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;"); // bold feedback
+
+		btnReturn.setOnAction(e -> { // attach click listener
+			SeedRequest request = table.getSelectionModel().getSelectedItem(); // get selected loan
+			if (request == null) { // check selection
+				lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b42318;"); // red text
+				lblWarn.setText("Error: Please select an approved request first."); // error text
+				return; // abort
+			}
+
+			String amountStr = textAmount.getText().trim(); // read weight string
+			if (amountStr.isEmpty()) { // check non-empty
+				lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b42318;"); // red text
+				lblWarn.setText("Error: Returned seed weight is required!"); // error text
+				return; // abort
+			}
+
+			try { // attempt risky block
+				double amount = Double.parseDouble(amountStr); // parse weight
+				if (amount <= 0) { // must be positive
+					lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b42318;"); // red text
+					lblWarn.setText("Error: Amount must be greater than zero."); // error text
+					return; // abort
+				}
+
+				state.returnData.add(new SeedReturn( // pass value
+						state.nextReturnId++, // next return id
+						request.getRequestId(), // linked request id
+						state.currentUser.getUsername(), // farmer username
+						request.getLotId(), // destination lot id
+						request.getSeedLabel(), // seed label
+						state.round2(amount), // returned weight (allows principal + seed interest)
+						"Pending", // awaiting admin quality inspection
+						LocalDate.now().toString())); // today's date
+
+				state.saveReturns(); // persist to returns.txt
+				returnable.remove(request); // remove from pending return list
+				textAmount.clear(); // clear input
+				lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppState.PRIMARY_GREEN + ";"); // green text
+				lblWarn.setText("Harvest return submitted! Once accepted by an admin, any overdue status is cleared."); // confirmation text
+			} catch (NumberFormatException ex) { // handle exception
+				lblWarn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b42318;"); // red text
+				lblWarn.setText("Error: Amount must be a valid number!"); // parse error
+			}
+		});
+
+		VBox card = new VBox(14, lblInfo, table, hBoxAmount, btnReturn, lblWarn); // white card wrapper
+		card.setStyle(state.cardStyle()); // card style
+
+		VBox root = new VBox(20, card); // main return container
+		root.setPadding(new Insets(24, 28, 28, 28)); // outer margins
+		return root; // return view
+	}
+
+	// populate approved requests for the logged-in farmer that do not yet have a pending/accepted return
+	private void loadReturnableRequests(ObservableList<SeedRequest> list) { // define loadreturnablerequests helper
+		list.clear(); // clear existing items
+		String username = state.currentUser.getUsername(); // logged-in farmer username
+		for (SeedRequest request : state.requestData) { // inspect all requests
+			if (!request.getFarmer().equalsIgnoreCase(username)) { // skip other farmers
+				continue; // next request
+			}
+			if (!"Approved".equalsIgnoreCase(request.getStatus())) { // only active approved loans can be returned
+				continue; // next request
+			}
+
+			boolean alreadySubmitted = false; // check if a non-rejected return already exists
+			for (SeedReturn ret : state.returnData) { // scan existing returns
+				if (ret.getRequestId() == request.getRequestId() && !"Rejected".equalsIgnoreCase(ret.getStatus())) { // found active or accepted return
+					alreadySubmitted = true; // mark already submitted
+					break; // stop scanning
+				}
+			}
+
+			if (!alreadySubmitted) { // include if not yet returned
+				list.add(request); // add to returnable list
 			}
 		}
-		loanCombo.setPromptText(state.t("Select an approved seed loan...", "Pumili ng na-approve na hiram..."));
-		loanCombo.setMaxWidth(Double.MAX_VALUE);
-		loanCombo.setStyle(state.inputStyle());
-		loanCombo.setCellFactory(lv -> new javafx.scene.control.ListCell<SeedRequest>() {
-			@Override
-			protected void updateItem(SeedRequest item, boolean empty) {
-				super.updateItem(item, empty);
-				setText(empty || item == null ? "" : item.getTransactionCode() + " \u2022 " + item.getSeedLabel() + " (" + item.getAmount() + " kg)");
-			}
-		});
-		loanCombo.setButtonCell(new javafx.scene.control.ListCell<SeedRequest>() {
-			@Override
-			protected void updateItem(SeedRequest item, boolean empty) {
-				super.updateItem(item, empty);
-				setText(empty || item == null ? state.t("Select approved loan...", "Pumili ng na-approve na hiram...")
-						: item.getTransactionCode() + " \u2022 " + item.getSeedLabel());
-			}
-		});
-
-		TextField txtAmount = new TextField();
-		txtAmount.setPromptText("e.g. 50.0");
-		txtAmount.setStyle(state.inputStyle());
-
-		Label lblWarn = new Label();
-		lblWarn.setStyle("-fx-text-fill: #dc3545; -fx-font-weight: bold; -fx-font-size: 12px;");
-
-		HBox btns = new HBox(10);
-		btns.setAlignment(Pos.CENTER_RIGHT);
-
-		Button btnCancel = new Button(state.t("Cancel", "Kanselahin"));
-		btnCancel.setStyle(state.outlineButtonStyle());
-		btnCancel.setOnAction(e -> modal.close());
-
-		Button btnSubmit = new Button(state.t("Submit Return", "I-submit ang Pagbabalik"));
-		btnSubmit.setStyle(state.primaryButtonStyle());
-		btnSubmit.setOnAction(e -> {
-			SeedRequest chosen = loanCombo.getValue();
-			if (chosen == null) {
-				lblWarn.setText(state.t("Error: Select an approved loan first.", "Pumili muna ng na-approve na hiram."));
-				return;
-			}
-			try {
-				double amt = Double.parseDouble(txtAmount.getText().trim());
-				if (amt <= 0 || amt > chosen.getAmount()) {
-					lblWarn.setText(state.t("Error: Enter an amount between 0.1 and " + chosen.getAmount() + " kg.",
-							"Error: Maglagay ng halagang hanggang " + chosen.getAmount() + " kg."));
-					return;
-				}
-				state.returnData.add(new SeedReturn(state.nextReturnId++, chosen.getRequestId(), state.currentUser.getUsername(),
-						chosen.getLotId(), chosen.getSeedLabel(), state.round2(amt), "Pending", LocalDate.now()));
-				modal.close();
-				showFarmerShell();
-			} catch (NumberFormatException ex) {
-				lblWarn.setText(state.t("Error: Enter a valid numeric quantity.", "Oops! Dapat number ang ilagay sa dami."));
-			}
-		});
-
-		btns.getChildren().addAll(btnCancel, btnSubmit);
-		card.getChildren().addAll(lblTitle,
-				state.wrapField(state.t("Approved Seed Loan", "Na-approve na Hiram"), loanCombo),
-				state.wrapField(state.t("Quantity to Return (kg)", "Daming Ibabalik (kg)"), txtAmount),
-				lblWarn, btns);
-
-		modal.setScene(new Scene(card, 460, 320));
-		modal.showAndWait();
 	}
 }
